@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balance & Precios — Gestión de Importación & Rentabilidad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Librería local SheetJS para exportar a LibreOffice Calc (.ods / .xlsx / .csv) -->
+  <script src="libs/xlsx.full.min.js"></script>
+</head>
+<body data-theme="light">
+
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+          <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+          <path d="M7 21h10"/>
+          <path d="M12 3v18"/>
+          <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">Balance & Precios</h1>
+        <p class="brand-subtitle">Gestión de Importación &bull; RMB ¥ ⇄ EUR €</p>
+      </div>
+    </div>
+
+    <div class="nav-center">
+      <!-- Widget de Tipo de Cambio en Vivo -->
+      <div class="exchange-ticker" id="exchangeTicker" title="Haz clic para configurar el tipo de cambio">
+        <span class="ticker-live-dot" title="Mercado de divisas"></span>
+        <span class="ticker-currency-pair">EUR/CNY</span>
+        <span class="ticker-text">1 € = <strong id="tickerRate">7.80</strong> ¥</span>
+        <span class="ticker-badge" id="tickerUpdated">Auto</span>
+        <button class="btn-icon-subtle" id="btnRefreshRate" title="Actualizar tipo de cambio desde internet">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+        </button>
+      </div>
+
+      <!-- Botón Calculadora Rápida -->
+      <button class="btn btn-secondary btn-sm" id="btnOpenQuickCalc">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14"/><line x1="16" x2="16" y2="18"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+        Calculadora ¥/€
+      </button>
+    </div>
+
+    <div class="nav-actions">
+      <!-- Selector de Tema Claro / Oscuro -->
+      <button class="btn-icon" id="btnThemeToggle" title="Cambiar tema Claro / Oscuro">
+        🌙
+      </button>
+
+      <!-- Menú de Exportación a Calc / Excel -->
+      <div class="dropdown">
+        <button class="btn btn-secondary" id="btnExportMenu">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Exportar a Calc ▾
+        </button>
+        <div class="dropdown-menu" id="exportDropdown">
+          <button class="dropdown-item" id="btnExportODS">
+            📄 LibreOffice Calc (<strong>.ods</strong> nativo)
+          </button>
+          <button class="dropdown-item" id="btnExportXLSX">
+            📗 Microsoft Excel / Calc (<strong>.xlsx</strong>)
+          </button>
+          <button class="dropdown-item" id="btnExportCSV">
+            📑 Archivo delimitado (<strong>.csv</strong>)
+          </button>
+        </div>
+      </div>
+
+      <!-- Copia de seguridad -->
+      <button class="btn btn-secondary btn-icon-only" id="btnOpenBackup" title="Copia de Seguridad y Restauración">
+        💾
+      </button>
+
+      <!-- Botón Añadir Artículo -->
+      <button class="btn btn-primary" id="btnNewArticle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nuevo Artículo
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="main-container">
+
+    <!-- TARJETAS DE MÉTRICAS GLOBALES (KPIs) -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon blue">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">Catálogo & Stock</span>
+          <span class="kpi-value" id="kpiTotalArticles">0</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon orange">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">Inversión Prevista</span>
+          <span class="kpi-value" id="kpiTotalCost">0,00 €</span>
+          <span class="kpi-subtext" id="kpiTotalCostRMB">¥0 RMB</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon purple">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">Venta Potencial</span>
+          <span class="kpi-value" id="kpiTotalRevenue">0,00 €</span>
+          <span class="kpi-subtext" id="kpiAveragePrice">Media: 0,00 €/ud</span>
+        </div>
+      </div>
+
+      <div class="kpi-card highlight">
+        <div class="kpi-icon green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">Beneficio Neto Estimado</span>
+          <span class="kpi-value green-text" id="kpiTotalProfit">+0,00 €</span>
+          <span class="kpi-subtext" id="kpiAverageMargin">Margen medio: 0.0%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- BARRA DE HERRAMIENTAS: Búsqueda, Filtros y Vistas -->
+    <section class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Buscar por nombre, categoría o notas..." autocomplete="off">
+        <button class="btn-clear" id="btnClearSearch" title="Borrar búsqueda" style="display:none;">✕</button>
+      </div>
+
+      <div class="filters-group">
+        <select id="filterCategory" class="select-input">
+          <option value="ALL">Todas las categorías</option>
+        </select>
+
+        <select id="filterStatus" class="select-input">
+          <option value="ALL">Todos los estados</option>
+          <option value="EN_ESTUDIO">💡 En estudio</option>
+          <option value="COMPRADO">📦 Comprado / En camino</option>
+          <option value="EN_VENTA">🏷️ En venta (Stock)</option>
+          <option value="VENDIDO">✅ Vendido</option>
+          <option value="DESCARTADO">❌ Descartado</option>
+        </select>
+
+        <select id="sortBy" class="select-input">
+          <option value="date_desc">📅 Más recientes</option>
+          <option value="margin_desc">📈 Mayor margen (%)</option>
+          <option value="profit_desc">💰 Mayor beneficio (€)</option>
+          <option value="cost_asc">📉 Menor coste</option>
+          <option value="name_asc">🔤 Nombre (A-Z)</option>
+        </select>
+
+        <div class="view-toggle">
+          <button class="btn-view active" id="btnViewGrid" title="Vista en Cuadrícula">🔲 Cuadrícula</button>
+          <button class="btn-view" id="btnViewTable" title="Vista en Tabla">📋 Tabla</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISTA CUADRÍCULA DE ARTÍCULOS -->
+    <section id="articlesGrid" class="articles-grid">
+      <!-- Se inyecta dinámicamente con JS -->
+    </section>
+
+    <!-- VISTA TABLA DE ARTÍCULOS -->
+    <section id="articlesTableView" class="articles-table-container" style="display: none;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Foto</th>
+            <th>Artículo</th>
+            <th>Categoría</th>
+            <th>Estado</th>
+            <th>Uds</th>
+            <th>Coste Real (€)</th>
+            <th>Inversión (€)</th>
+            <th>eBay (€)</th>
+            <th>Wallapop (€)</th>
+            <th>Vinted (€)</th>
+            <th>Media (€)</th>
+            <th>P. Venta Unit.</th>
+            <th>Venta Total (€)</th>
+            <th>Beneficio Total</th>
+            <th>Margen (%)</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="articlesTableBody">
+          <!-- Se inyecta dinámicamente con JS -->
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ESTADO VACÍO (Si no hay artículos) -->
+    <div id="emptyState" class="empty-state" style="display: none;">
+      <div class="empty-icon">📦</div>
+      <h3>No hay artículos registrados o no coinciden con el filtro</h3>
+      <p>Comienza añadiendo un nuevo artículo o carga ejemplos de prueba para ver el funcionamiento.</p>
+      <div class="empty-actions">
+        <button class="btn btn-primary" id="btnEmptyAdd">➕ Añadir Artículo</button>
+        <button class="btn btn-secondary" id="btnLoadDemo">🧪 Cargar Datos de Ejemplo</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: CREAR / EDITAR ARTÍCULO                                -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay" id="articleModal" style="display: none;">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="modalArticleTitle">Nuevo Artículo</h2>
+        <button class="modal-close" id="btnCloseArticleModal">✕</button>
+      </div>
+
+      <form id="articleForm" class="modal-body">
+        <input type="hidden" id="articleId">
+
+        <div class="form-row">
+          <!-- Columna izquierda: Información básica y Fotos -->
+          <div class="form-col">
+            <div class="form-group">
+              <label for="inputName">Nombre del Artículo / Modelo <span class="required">*</span></label>
+              <input type="text" id="inputName" required placeholder="Ej: Auriculares Bluetooth ANC TWS" autocomplete="off">
+            </div>
+
+            <div class="form-row-inner">
+              <div class="form-group flex-1">
+                <label for="inputCategory">Categoría</label>
+                <input type="text" id="inputCategory" list="categoriesList" placeholder="Ej: Electrónica" autocomplete="off">
+                <datalist id="categoriesList">
+                  <option value="Electrónica"></option>
+                  <option value="Hogar y Cocina"></option>
+                  <option value="Moda y Accesorios"></option>
+                  <option value="Deportes"></option>
+                  <option value="Belleza"></option>
+                  <option value="Juguetes"></option>
+                  <option value="Herramientas"></option>
+                </datalist>
+              </div>
+
+              <div class="form-group flex-1">
+                <label for="inputStatus">Estado</label>
+                <select id="inputStatus">
+                  <option value="EN_ESTUDIO">💡 En estudio / Análisis</option>
+                  <option value="COMPRADO">📦 Comprado / En camino</option>
+                  <option value="EN_VENTA" selected>🏷️ En venta (Stock)</option>
+                  <option value="VENDIDO">✅ Vendido</option>
+                  <option value="DESCARTADO">❌ Descartado</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="width: 110px;">
+                <label for="inputQuantity">Uds. Lote <span class="required">*</span></label>
+                <input type="number" id="inputQuantity" min="1" step="1" value="1" required title="Número de unidades iguales de este artículo">
+              </div>
+            </div>
+
+            <!-- FOTOS: Pestañas de Subida Local vs Enlace URL -->
+            <div class="photo-section">
+              <label class="section-label">Fotografía del Artículo</label>
+              
+              <div class="tab-buttons">
+                <button type="button" class="tab-btn active" id="tabUploadFile">📁 Subir Foto de tu PC</button>
+                <button type="button" class="tab-btn" id="tabUploadUrl">🔗 Pegar Enlace / URL</button>
+              </div>
+
+              <!-- Pestaña 1: Subir Archivo Local -->
+              <div class="tab-content" id="panelUploadFile">
+                <div class="drop-zone" id="dropZone">
+                  <span class="drop-icon">📷</span>
+                  <p>Arrastra una foto aquí o <label for="fileInput" class="file-label">selecciona de tu equipo</label></p>
+                  <span class="file-hint">Formatos soportados: JPG, PNG, WEBP, GIF (se guarda en tu navegador)</span>
+                  <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                </div>
+              </div>
+
+              <!-- Pestaña 2: URL de Internet -->
+              <div class="tab-content" id="panelUploadUrl" style="display: none;">
+                <div class="input-with-button">
+                  <input type="url" id="imageUrlInput" placeholder="https://ejemplo.com/foto-articulo.jpg">
+                  <button type="button" class="btn btn-secondary" id="btnPreviewUrl">Ver</button>
+                </div>
+                <span class="file-hint">Pega el enlace directo a la imagen de AliExpress, 1688, Taobao o proveedor</span>
+              </div>
+
+              <!-- Vista previa de la foto seleccionada -->
+              <div class="photo-preview-container" id="photoPreviewContainer" style="display: none;">
+                <img id="photoPreviewImg" src="" alt="Vista previa" class="photo-preview-thumb">
+                <div class="photo-preview-details">
+                  <span id="photoPreviewName">foto.jpg</span>
+                  <button type="button" class="btn-text-danger" id="btnRemovePhoto">🗑️ Quitar foto</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notas adicionales / Enlace proveedor -->
+            <div class="form-group">
+              <label for="inputNotes">Notas / Enlace del Proveedor (AliExpress, 1688, etc.)</label>
+              <textarea id="inputNotes" rows="2" placeholder="Especificaciones, enlace del proveedor, peso, tiempo de entrega..."></textarea>
+            </div>
+          </div>
+
+          <!-- Columna derecha: Costes, Conversión RMB, Precios de Mercado y Venta -->
+          <div class="form-col form-col-right">
+
+            <!-- SECCIÓN 1: COSTES Y DIVISAS -->
+            <div class="card-box">
+              <div class="box-header">
+                <span class="box-title">1. Coste de Compra y Divisas</span>
+                <span class="rate-badge">1 € = <span id="formRateDisplay">7.80</span> ¥</span>
+              </div>
+
+              <div class="form-row-inner">
+                <div class="form-group flex-1">
+                  <label for="inputCostRMB">Coste en RMB (¥)</label>
+                  <div class="input-prefix-container">
+                    <span class="input-prefix">¥</span>
+                    <input type="number" id="inputCostRMB" step="0.01" min="0" placeholder="0.00">
+                  </div>
+                </div>
+
+                <div class="form-group flex-1">
+                  <label for="inputCostEUR">Coste Base (€)</label>
+                  <div class="input-prefix-container">
+                    <span class="input-prefix">€</span>
+                    <input type="number" id="inputCostEUR" step="0.01" min="0" placeholder="0.00">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Gastos Adicionales de Importación y Venta -->
+              <div class="collapsible-section">
+                <button type="button" class="collapsible-toggle" id="btnToggleExtraCosts">
+                  <span>➕ Gastos extra (Envío, Aduanas, Comisiones)</span>
+                  <span id="toggleIcon">▾</span>
+                </button>
+                <div class="collapsible-body" id="extraCostsBody" style="display: none;">
+                  <div class="form-row-inner">
+                    <div class="form-group flex-1">
+                      <label for="inputShippingCost">Envío unitario (€)</label>
+                      <input type="number" id="inputShippingCost" step="0.01" min="0" value="0.00" placeholder="0.00">
+                    </div>
+                    <div class="form-group flex-1">
+                      <label for="inputCustomsPercent">Aduanas / IVA (%)</label>
+                      <input type="number" id="inputCustomsPercent" step="0.1" min="0" value="0" placeholder="0%">
+                    </div>
+                    <div class="form-group flex-1">
+                      <label for="inputFeePercent">Comisión Venta (%)</label>
+                      <input type="number" id="inputFeePercent" step="0.1" min="0" value="0" placeholder="0%">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Coste Real Total Calculado (Unitario y Lote) -->
+              <div class="cost-summary-bar">
+                <div class="cost-summary-item">
+                  <span class="cost-summary-lbl">Coste Unitario:</span>
+                  <strong id="displayTotalCost">0,00 €</strong>
+                </div>
+                <div class="cost-summary-item" style="text-align: right;">
+                  <span class="cost-summary-lbl">Inversión Lote (<span id="displayQtyCostLabel">1</span> uds):</span>
+                  <strong id="displayBatchCost" style="color: var(--warning-text);">0,00 €</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECCIÓN 2: PRECIOS DE REFERENCIA (EBAY, WALLAPOP, VINTED) -->
+            <div class="card-box">
+              <div class="box-header">
+                <div>
+                  <span class="box-title">2. Precios de Mercado por Plataforma</span>
+                  <p class="box-desc">Introduce los precios de referencia para calcular la media automáticamente</p>
+                </div>
+              </div>
+
+              <!-- Tres plataformas fijas separadas -->
+              <div class="market-platforms-list">
+                <div class="platform-row">
+                  <div class="platform-badge ebay-badge">
+                    <span class="platform-dot ebay-dot"></span>
+                    <strong>eBay</strong>
+                  </div>
+                  <div class="input-prefix-container flex-1">
+                    <span class="input-prefix">€</span>
+                    <input type="number" id="inputPriceEbay" step="0.01" min="0" placeholder="0.00" title="Precio de referencia en eBay">
+                  </div>
+                </div>
+
+                <div class="platform-row">
+                  <div class="platform-badge wallapop-badge">
+                    <span class="platform-dot wallapop-dot"></span>
+                    <strong>Wallapop</strong>
+                  </div>
+                  <div class="input-prefix-container flex-1">
+                    <span class="input-prefix">€</span>
+                    <input type="number" id="inputPriceWallapop" step="0.01" min="0" placeholder="0.00" title="Precio de referencia en Wallapop">
+                  </div>
+                </div>
+
+                <div class="platform-row">
+                  <div class="platform-badge vinted-badge">
+                    <span class="platform-dot vinted-dot"></span>
+                    <strong>Vinted</strong>
+                  </div>
+                  <div class="input-prefix-container flex-1">
+                    <span class="input-prefix">€</span>
+                    <input type="number" id="inputPriceVinted" step="0.01" min="0" placeholder="0.00" title="Precio de referencia en Vinted">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Otras referencias adicionales (opcional) -->
+              <div class="collapsible-section">
+                <button type="button" class="collapsible-toggle" id="btnToggleCustomPrices">
+                  <span>➕ Añadir otra referencia adicional (Amazon, etc.)</span>
+                  <span id="toggleCustomIcon">▾</span>
+                </button>
+                <div class="collapsible-body" id="customPricesBody" style="display: none;">
+                  <div id="marketPricesList" class="market-prices-list">
+                    <!-- Filas adicionales dinámicas -->
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm mt-2" id="btnAddMarketPrice">
+                    ➕ Añadir otra referencia
+                  </button>
+                </div>
+              </div>
+
+              <!-- Resumen de la Media de Mercado -->
+              <div class="market-summary-bar">
+                <div class="market-stat">
+                  <span class="stat-title">Media Calculada:</span>
+                  <span class="stat-number" id="displayMarketAverage">0,00 €</span>
+                </div>
+                <div class="market-sub-stats">
+                  <span>Mín: <strong id="displayMarketMin">0,00 €</strong></span>
+                  <span>Máx: <strong id="displayMarketMax">0,00 €</strong></span>
+                  <button type="button" class="btn-copy-avg" id="btnApplyAverage" title="Usar esta media como tu precio final de venta">
+                    🎯 Aplicar como Precio Final
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECCIÓN 3: PRECIO FINAL DE VENTA Y RENTABILIDAD -->
+            <div class="card-box highlight-box">
+              <div class="box-header">
+                <span class="box-title">3. Precio Final y Margen de Beneficio</span>
+              </div>
+
+              <div class="form-group">
+                <label for="inputFinalPrice">¿A qué precio vendes CADA unidad? (€) <span class="required">*</span></label>
+                <div class="input-prefix-container input-lg">
+                  <span class="input-prefix">€</span>
+                  <input type="number" id="inputFinalPrice" required step="0.01" min="0" placeholder="0.00">
+                </div>
+              </div>
+
+              <!-- Resultados de Rentabilidad en Tiempo Real -->
+              <div class="profit-calculator-grid profit-grid-4">
+                <div class="profit-badge" id="profitBadge">
+                  <span class="profit-label">Beneficio Unitario</span>
+                  <span class="profit-value" id="displayNetProfit">0,00 €</span>
+                </div>
+
+                <div class="profit-badge highlight-profit" id="batchProfitBadge">
+                  <span class="profit-label">Beneficio Total (<span id="displayQtyProfitLabel">1</span> uds)</span>
+                  <span class="profit-value" id="displayBatchProfit">0,00 €</span>
+                </div>
+
+                <div class="profit-badge" id="marginBadge">
+                  <span class="profit-label">Margen Venta</span>
+                  <span class="profit-value" id="displayMarginPercent">0.0%</span>
+                </div>
+
+                <div class="profit-badge" id="roiBadge">
+                  <span class="profit-label">Retorno (ROI)</span>
+                  <span class="profit-value" id="displayROI">0.0%</span>
+                </div>
+              </div>
+
+              <div class="batch-financial-summary" id="batchFinancialSummary">
+                <!-- Resumen financiero del lote en vivo -->
+              </div>
+
+              <div class="vs-market-note" id="vsMarketNote">
+                Introduce el precio final para comparar con la media de mercado.
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelArticleModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-lg" id="btnSaveArticle">💾 Guardar Artículo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: AJUSTES DE TIPO DE CAMBIO (RMB ⇄ EUR)                  -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay" id="rateModal" style="display: none;">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h2>Configurar Tipo de Cambio (¥ RMB ⇄ € EUR)</h2>
+        <button class="modal-close" id="btnCloseRateModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">
+          Puedes consultar el tipo de cambio oficial del mercado o ajustarlo manualmente según la comisión real que te aplique tu banco o Alipay.
+        </p>
+
+        <div class="form-group mt-3">
+          <label for="inputCustomRate">Valor de 1 Euro (€) en Renminbi (¥ RMB):</label>
+          <div class="input-prefix-container">
+            <span class="input-prefix">¥</span>
+            <input type="number" id="inputCustomRate" step="0.001" min="1" value="7.80">
+          </div>
+        </div>
+
+        <div class="rate-preview-box">
+          <p>Ejemplo con esta tasa:</p>
+          <ul class="clean-list">
+            <li><strong>¥ 100 RMB</strong> = <span id="previewRmbToEur">12.82 €</span></li>
+            <li><strong>¥ 500 RMB</strong> = <span id="preview500RmbToEur">64.10 €</span></li>
+            <li><strong>10.00 €</strong> = <span id="previewEurToRmb">¥ 78.00 RMB</span></li>
+          </ul>
+        </div>
+
+        <div class="rate-status-info">
+          <span>Última actualización: <strong id="rateLastUpdatedText">Valor predeterminado</strong></span>
+        </div>
+
+        <div class="mt-3 flex-between">
+          <button type="button" class="btn btn-secondary" id="btnFetchRateOnline">
+            🌐 Obtener cambio oficial en directo
+          </button>
+          <button type="button" class="btn btn-primary" id="btnSaveRate">
+            Guardar Tasa
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: CALCULADORA RÁPIDA RMB ⇄ EUR                          -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay" id="quickCalcModal" style="display: none;">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h2>🧮 Calculadora Rápida ¥ RMB ⇄ € EUR</h2>
+        <button class="modal-close" id="btnCloseQuickCalcModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3">Tasa actual aplicada: <strong>1 € = <span class="calc-rate-ref">7.80</span> ¥ RMB</strong></p>
+
+        <div class="quick-calc-inputs">
+          <div class="form-group">
+            <label for="quickRmb">Renminbi Chino (¥ RMB)</label>
+            <div class="input-prefix-container">
+              <span class="input-prefix">¥</span>
+              <input type="number" id="quickRmb" step="0.1" placeholder="Ej: 85">
+            </div>
+          </div>
+
+          <div class="quick-calc-equal">=</div>
+
+          <div class="form-group">
+            <label for="quickEur">Euros (€ EUR)</label>
+            <div class="input-prefix-container">
+              <span class="input-prefix">€</span>
+              <input type="number" id="quickEur" step="0.01" placeholder="Ej: 10.90">
+            </div>
+          </div>
+        </div>
+
+        <div class="quick-table-box mt-3">
+          <label class="section-label">Tabla de Conversiones Frecuentes</label>
+          <div class="quick-chips-grid" id="quickChipsGrid">
+            <!-- Se genera con JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: COPIA DE SEGURIDAD Y RESTAURACIÓN                     -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay" id="backupModal" style="display: none;">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h2>💾 Copia de Seguridad y Datos</h2>
+        <button class="modal-close" id="btnCloseBackupModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">
+          Tus artículos y fotografías se guardan localmente en la base de datos de tu navegador. Puedes hacer copias de seguridad en archivo para no perder nada o transferir tus artículos a otro ordenador.
+        </p>
+
+        <div class="backup-actions-list mt-3">
+          <div class="backup-action-item">
+            <div>
+              <strong>Exportar Copia de Seguridad (.json)</strong>
+              <p class="text-sm text-muted">Descarga un archivo con todos tus artículos, fotos y ajustes.</p>
+            </div>
+            <button class="btn btn-primary" id="btnDownloadBackup">📥 Descargar Copia</button>
+          </div>
+
+          <div class="backup-action-item">
+            <div>
+              <strong>Restaurar desde Copia de Seguridad</strong>
+              <p class="text-sm text-muted">Carga un archivo de copia previamente guardado.</p>
+            </div>
+            <label class="btn btn-secondary file-label-btn">
+              📤 Cargar Copia
+              <input type="file" id="fileRestoreBackup" accept=".json" style="display: none;">
+            </label>
+          </div>
+
+          <div class="backup-action-item border-top-danger mt-3">
+            <div>
+              <strong class="text-danger">Borrar todos los datos</strong>
+              <p class="text-sm text-muted">Elimina todos los artículos del catálogo de este navegador.</p>
+            </div>
+            <button class="btn btn-danger-outline" id="btnClearAllData">🗑️ Vaciar Catálogo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: VISTA PREVIA DE IMAGEN EN TAMAÑO COMPLETO              -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay modal-lightbox" id="lightboxModal" style="display: none;">
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="btnCloseLightbox">✕</button>
+      <img id="lightboxImg" src="" alt="Foto en alta resolución">
+      <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+  </div>
+
+  <!-- BOTÓN FLOTANTE MÓVIL (FAB) -->
+  <button class="mobile-fab" id="btnMobileAdd" title="Añadir Nuevo Artículo">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <!-- NOTIFICACIONES TOAST FLOTANTES -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- SCRIPT PRINCIPAL -->
+  <script src="app.js"></script>
+</body>
+</html>
