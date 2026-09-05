@@ -48,12 +48,18 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14"/><line x1="16" x2="16" y2="18"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
         Calculadora ¥/€
       </button>
+
+      <!-- Botón Gestión de Lotes y Envíos Consolidados -->
+      <button class="btn btn-secondary btn-sm" id="btnOpenBatchesModal" title="Gestionar Lotes y Envíos Consolidados">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Lotes / Envíos
+      </button>
     </div>
 
     <div class="nav-actions">
       <!-- Selector de Tema Claro / Oscuro -->
       <button class="btn-icon" id="btnThemeToggle" title="Cambiar tema Claro / Oscuro">
-        🌙
+        <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
 
       <!-- Menú de Exportación a Calc / Excel -->
@@ -64,20 +70,23 @@
         </button>
         <div class="dropdown-menu" id="exportDropdown">
           <button class="dropdown-item" id="btnExportODS">
-            📄 LibreOffice Calc (<strong>.ods</strong> nativo)
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg>
+            <span>LibreOffice Calc (<strong>.ods</strong> nativo)</span>
           </button>
           <button class="dropdown-item" id="btnExportXLSX">
-            📗 Microsoft Excel / Calc (<strong>.xlsx</strong>)
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13l3 4"/><path d="M11 13l-3 4"/></svg>
+            <span>Microsoft Excel / Calc (<strong>.xlsx</strong>)</span>
           </button>
           <button class="dropdown-item" id="btnExportCSV">
-            📑 Archivo delimitado (<strong>.csv</strong>)
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
+            <span>Archivo delimitado (<strong>.csv</strong>)</span>
           </button>
         </div>
       </div>
 
       <!-- Copia de seguridad -->
       <button class="btn btn-secondary btn-icon-only" id="btnOpenBackup" title="Copia de Seguridad y Restauración">
-        💾
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
       </button>
 
       <!-- Botón Añadir Artículo -->
@@ -140,9 +149,13 @@
     <!-- BARRA DE HERRAMIENTAS: Búsqueda, Filtros y Vistas -->
     <section class="toolbar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </span>
         <input type="text" id="searchInput" placeholder="Buscar por nombre, categoría o notas..." autocomplete="off">
-        <button class="btn-clear" id="btnClearSearch" title="Borrar búsqueda" style="display:none;">✕</button>
+        <button class="btn-clear" id="btnClearSearch" title="Borrar búsqueda" style="display:none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
       <div class="filters-group">
@@ -150,26 +163,37 @@
           <option value="ALL">Todas las categorías</option>
         </select>
 
+        <select id="filterBatch" class="select-input">
+          <option value="ALL">Todos los lotes</option>
+          <option value="NONE">Sin lote asignado</option>
+        </select>
+
         <select id="filterStatus" class="select-input">
           <option value="ALL">Todos los estados</option>
-          <option value="EN_ESTUDIO">💡 En estudio</option>
-          <option value="COMPRADO">📦 Comprado / En camino</option>
-          <option value="EN_VENTA">🏷️ En venta (Stock)</option>
-          <option value="VENDIDO">✅ Vendido</option>
-          <option value="DESCARTADO">❌ Descartado</option>
+          <option value="EN_ESTUDIO">En estudio</option>
+          <option value="COMPRADO">Comprado / En camino</option>
+          <option value="EN_VENTA">En venta (Stock)</option>
+          <option value="VENDIDO">Vendido</option>
+          <option value="DESCARTADO">Descartado</option>
         </select>
 
         <select id="sortBy" class="select-input">
-          <option value="date_desc">📅 Más recientes</option>
-          <option value="margin_desc">📈 Mayor margen (%)</option>
-          <option value="profit_desc">💰 Mayor beneficio (€)</option>
-          <option value="cost_asc">📉 Menor coste</option>
-          <option value="name_asc">🔤 Nombre (A-Z)</option>
+          <option value="date_desc">Fecha (Más recientes)</option>
+          <option value="margin_desc">Mayor margen (%)</option>
+          <option value="profit_desc">Mayor beneficio (€)</option>
+          <option value="cost_asc">Menor coste (€)</option>
+          <option value="name_asc">Nombre (A-Z)</option>
         </select>
 
         <div class="view-toggle">
-          <button class="btn-view active" id="btnViewGrid" title="Vista en Cuadrícula">🔲 Cuadrícula</button>
-          <button class="btn-view" id="btnViewTable" title="Vista en Tabla">📋 Tabla</button>
+          <button class="btn-view active" id="btnViewGrid" title="Vista en Cuadrícula">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            <span>Cuadrícula</span>
+          </button>
+          <button class="btn-view" id="btnViewTable" title="Vista en Tabla">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/><line x1="8" x2="8" y1="3" y2="21"/></svg>
+            <span>Tabla</span>
+          </button>
         </div>
       </div>
     </section>
@@ -187,13 +211,14 @@
             <th>Foto</th>
             <th>Artículo</th>
             <th>Categoría</th>
+            <th class="col-batch">Lote / Envío</th>
             <th>Estado</th>
             <th>Uds</th>
             <th>Coste Real (€)</th>
             <th>Inversión (€)</th>
-            <th>eBay (€)</th>
-            <th>Wallapop (€)</th>
-            <th>Vinted (€)</th>
+            <th class="col-platform-ebay">eBay (€)</th>
+            <th class="col-platform-wallapop">Wallapop (€)</th>
+            <th class="col-platform-vinted">Vinted (€)</th>
             <th>Media (€)</th>
             <th>P. Venta Unit.</th>
             <th>Venta Total (€)</th>
@@ -210,12 +235,20 @@
 
     <!-- ESTADO VACÍO (Si no hay artículos) -->
     <div id="emptyState" class="empty-state" style="display: none;">
-      <div class="empty-icon">📦</div>
+      <div class="empty-icon">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      </div>
       <h3>No hay artículos registrados o no coinciden con el filtro</h3>
       <p>Comienza añadiendo un nuevo artículo o carga ejemplos de prueba para ver el funcionamiento.</p>
       <div class="empty-actions">
-        <button class="btn btn-primary" id="btnEmptyAdd">➕ Añadir Artículo</button>
-        <button class="btn btn-secondary" id="btnLoadDemo">🧪 Cargar Datos de Ejemplo</button>
+        <button class="btn btn-primary" id="btnEmptyAdd">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Añadir Artículo
+        </button>
+        <button class="btn btn-secondary" id="btnLoadDemo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V2"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+          Cargar Datos de Ejemplo
+        </button>
       </div>
     </div>
 
@@ -228,7 +261,9 @@
     <div class="modal modal-lg">
       <div class="modal-header">
         <h2 id="modalArticleTitle">Nuevo Artículo</h2>
-        <button class="modal-close" id="btnCloseArticleModal">✕</button>
+        <button class="modal-close" id="btnCloseArticleModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
       <form id="articleForm" class="modal-body">
@@ -258,17 +293,30 @@
               </div>
 
               <div class="form-group flex-1">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <label for="inputBatchId">Lote / Envío Consolidado</label>
+                  <button type="button" class="btn-link-sm" id="btnQuickCreateBatch">+ Nuevo</button>
+                </div>
+                <select id="inputBatchId">
+                  <option value="">Sin lote (Envío individual)</option>
+                  <!-- Opciones dinámicas de lotes -->
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row-inner">
+              <div class="form-group flex-1">
                 <label for="inputStatus">Estado</label>
                 <select id="inputStatus">
-                  <option value="EN_ESTUDIO">💡 En estudio / Análisis</option>
-                  <option value="COMPRADO">📦 Comprado / En camino</option>
-                  <option value="EN_VENTA" selected>🏷️ En venta (Stock)</option>
-                  <option value="VENDIDO">✅ Vendido</option>
-                  <option value="DESCARTADO">❌ Descartado</option>
+                  <option value="EN_ESTUDIO">En estudio / Análisis</option>
+                  <option value="COMPRADO">Comprado / En camino</option>
+                  <option value="EN_VENTA" selected>En venta (Stock)</option>
+                  <option value="VENDIDO">Vendido</option>
+                  <option value="DESCARTADO">Descartado</option>
                 </select>
               </div>
 
-              <div class="form-group" style="width: 110px;">
+              <div class="form-group" style="width: 120px;">
                 <label for="inputQuantity">Uds. Lote <span class="required">*</span></label>
                 <input type="number" id="inputQuantity" min="1" step="1" value="1" required title="Número de unidades iguales de este artículo">
               </div>
@@ -279,14 +327,22 @@
               <label class="section-label">Fotografía del Artículo</label>
               
               <div class="tab-buttons">
-                <button type="button" class="tab-btn active" id="tabUploadFile">📁 Subir Foto de tu PC</button>
-                <button type="button" class="tab-btn" id="tabUploadUrl">🔗 Pegar Enlace / URL</button>
+                <button type="button" class="tab-btn active" id="tabUploadFile">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                  <span>Subir Foto de tu PC</span>
+                </button>
+                <button type="button" class="tab-btn" id="tabUploadUrl">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  <span>Pegar Enlace / URL</span>
+                </button>
               </div>
 
               <!-- Pestaña 1: Subir Archivo Local -->
               <div class="tab-content" id="panelUploadFile">
                 <div class="drop-zone" id="dropZone">
-                  <span class="drop-icon">📷</span>
+                  <span class="drop-icon">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                  </span>
                   <p>Arrastra una foto aquí o <label for="fileInput" class="file-label">selecciona de tu equipo</label></p>
                   <span class="file-hint">Formatos soportados: JPG, PNG, WEBP, GIF (se guarda en tu navegador)</span>
                   <input type="file" id="fileInput" accept="image/*" style="display: none;">
@@ -307,7 +363,10 @@
                 <img id="photoPreviewImg" src="" alt="Vista previa" class="photo-preview-thumb">
                 <div class="photo-preview-details">
                   <span id="photoPreviewName">foto.jpg</span>
-                  <button type="button" class="btn-text-danger" id="btnRemovePhoto">🗑️ Quitar foto</button>
+                  <button type="button" class="btn-text-danger" id="btnRemovePhoto">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Quitar foto
+                  </button>
                 </div>
               </div>
             </div>
@@ -350,10 +409,17 @@
               <!-- Gastos Adicionales de Importación y Venta -->
               <div class="collapsible-section">
                 <button type="button" class="collapsible-toggle" id="btnToggleExtraCosts">
-                  <span>➕ Gastos extra (Envío, Aduanas, Comisiones)</span>
+                  <span style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Gastos extra (Envío, Aduanas, Comisiones)
+                  </span>
                   <span id="toggleIcon">▾</span>
                 </button>
                 <div class="collapsible-body" id="extraCostsBody" style="display: none;">
+                  <div id="batchShippingNote" class="batch-shipping-notice" style="display: none;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                    <span id="batchShippingNoteText">Envío prorrateado desde el Lote</span>
+                  </div>
                   <div class="form-row-inner">
                     <div class="form-group flex-1">
                       <label for="inputShippingCost">Envío unitario (€)</label>
@@ -432,7 +498,10 @@
               <!-- Otras referencias adicionales (opcional) -->
               <div class="collapsible-section">
                 <button type="button" class="collapsible-toggle" id="btnToggleCustomPrices">
-                  <span>➕ Añadir otra referencia adicional (Amazon, etc.)</span>
+                  <span style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Añadir otra referencia adicional (Amazon, etc.)
+                  </span>
                   <span id="toggleCustomIcon">▾</span>
                 </button>
                 <div class="collapsible-body" id="customPricesBody" style="display: none;">
@@ -440,7 +509,8 @@
                     <!-- Filas adicionales dinámicas -->
                   </div>
                   <button type="button" class="btn btn-secondary btn-sm mt-2" id="btnAddMarketPrice">
-                    ➕ Añadir otra referencia
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Añadir otra referencia
                   </button>
                 </div>
               </div>
@@ -455,7 +525,8 @@
                   <span>Mín: <strong id="displayMarketMin">0,00 €</strong></span>
                   <span>Máx: <strong id="displayMarketMax">0,00 €</strong></span>
                   <button type="button" class="btn-copy-avg" id="btnApplyAverage" title="Usar esta media como tu precio final de venta">
-                    🎯 Aplicar como Precio Final
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                    Aplicar como Precio Final
                   </button>
                 </div>
               </div>
@@ -512,7 +583,10 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="btnCancelArticleModal">Cancelar</button>
-          <button type="submit" class="btn btn-primary btn-lg" id="btnSaveArticle">💾 Guardar Artículo</button>
+          <button type="submit" class="btn btn-primary btn-lg" id="btnSaveArticle">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Artículo
+          </button>
         </div>
       </form>
     </div>
@@ -525,7 +599,9 @@
     <div class="modal modal-md">
       <div class="modal-header">
         <h2>Configurar Tipo de Cambio (¥ RMB ⇄ € EUR)</h2>
-        <button class="modal-close" id="btnCloseRateModal">✕</button>
+        <button class="modal-close" id="btnCloseRateModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
       <div class="modal-body">
         <p class="text-muted">
@@ -555,7 +631,8 @@
 
         <div class="mt-3 flex-between">
           <button type="button" class="btn btn-secondary" id="btnFetchRateOnline">
-            🌐 Obtener cambio oficial en directo
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Obtener cambio oficial en directo
           </button>
           <button type="button" class="btn btn-primary" id="btnSaveRate">
             Guardar Tasa
@@ -571,8 +648,13 @@
   <div class="modal-overlay" id="quickCalcModal" style="display: none;">
     <div class="modal modal-md">
       <div class="modal-header">
-        <h2>🧮 Calculadora Rápida ¥ RMB ⇄ € EUR</h2>
-        <button class="modal-close" id="btnCloseQuickCalcModal">✕</button>
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14"/><line x1="16" x2="16" y2="18"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+          <h2 style="font-size: 1.15rem;">Calculadora Rápida ¥ RMB ⇄ € EUR</h2>
+        </div>
+        <button class="modal-close" id="btnCloseQuickCalcModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
       <div class="modal-body">
         <p class="text-muted mb-3">Tasa actual aplicada: <strong>1 € = <span class="calc-rate-ref">7.80</span> ¥ RMB</strong></p>
@@ -613,8 +695,13 @@
   <div class="modal-overlay" id="backupModal" style="display: none;">
     <div class="modal modal-md">
       <div class="modal-header">
-        <h2>💾 Copia de Seguridad y Datos</h2>
-        <button class="modal-close" id="btnCloseBackupModal">✕</button>
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+          <h2 style="font-size: 1.15rem;">Copia de Seguridad y Datos</h2>
+        </div>
+        <button class="modal-close" id="btnCloseBackupModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
       <div class="modal-body">
         <p class="text-muted">
@@ -627,7 +714,10 @@
               <strong>Exportar Copia de Seguridad (.json)</strong>
               <p class="text-sm text-muted">Descarga un archivo con todos tus artículos, fotos y ajustes.</p>
             </div>
-            <button class="btn btn-primary" id="btnDownloadBackup">📥 Descargar Copia</button>
+            <button class="btn btn-primary" id="btnDownloadBackup">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Descargar Copia
+            </button>
           </div>
 
           <div class="backup-action-item">
@@ -636,7 +726,8 @@
               <p class="text-sm text-muted">Carga un archivo de copia previamente guardado.</p>
             </div>
             <label class="btn btn-secondary file-label-btn">
-              📤 Cargar Copia
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              Cargar Copia
               <input type="file" id="fileRestoreBackup" accept=".json" style="display: none;">
             </label>
           </div>
@@ -646,10 +737,117 @@
               <strong class="text-danger">Borrar todos los datos</strong>
               <p class="text-sm text-muted">Elimina todos los artículos del catálogo de este navegador.</p>
             </div>
-            <button class="btn btn-danger-outline" id="btnClearAllData">🗑️ Vaciar Catálogo</button>
+            <button class="btn btn-danger-outline" id="btnClearAllData">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+              Vaciar Catálogo
+            </button>
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: GESTIÓN DE LOTES Y ENVÍOS CONSOLIDADOS                -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay" id="batchesModal" style="display: none;">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          <h2 style="font-size: 1.15rem;">Lotes y Envíos Consolidados</h2>
+        </div>
+        <button class="modal-close" id="btnCloseBatchesModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="batches-intro-box">
+          <p class="text-sm text-muted">
+            Agrupa varios artículos que viajan juntos en un mismo paquete o caja desde China. Introduce el <strong>coste de envío total</strong> pagado al transportista y la aplicación lo prorrateará automáticamente entre todas las unidades para calcular tus costes reales.
+          </p>
+          <button type="button" class="btn btn-primary btn-sm" id="btnCreateNewBatch">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo Lote
+          </button>
+        </div>
+
+        <!-- Lista de Lotes existentes -->
+        <div id="batchesListContainer" class="batches-list-grid mt-3">
+          <!-- Renderizado dinámicamente con JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL SECUNDARIO: CREAR / EDITAR LOTE                         -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay" id="batchEditModal" style="display: none; z-index: 1100;">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h2 id="batchEditModalTitle" style="font-size: 1.1rem;">Nuevo Lote de Envío</h2>
+        <button class="modal-close" id="btnCloseBatchEditModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form id="batchForm" class="modal-body">
+        <input type="hidden" id="batchEditId">
+
+        <div class="form-group">
+          <label for="batchInputName">Nombre del Lote / Pedido <span class="required">*</span></label>
+          <input type="text" id="batchInputName" required placeholder="Ej: Lote Septiembre #1 - Ropa y Accesorios" autocomplete="off">
+        </div>
+
+        <div class="form-row-inner">
+          <div class="form-group flex-1">
+            <label for="batchInputShippingCost">Coste de Envío TOTAL del Paquete (€) <span class="required">*</span></label>
+            <div class="input-prefix-container">
+              <span class="input-prefix">€</span>
+              <input type="number" id="batchInputShippingCost" step="0.01" min="0" required placeholder="0.00" value="0.00">
+            </div>
+          </div>
+
+          <div class="form-group flex-1">
+            <label for="batchInputStatus">Estado del Envío</label>
+            <select id="batchInputStatus">
+              <option value="EN_PREPARACION">En preparación</option>
+              <option value="EN_CAMINO" selected>En camino / Tránsito</option>
+              <option value="RECIBIDO">Recibido / Entregado</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-inner">
+          <div class="form-group flex-1">
+            <label for="batchInputDistribution">Método de Reparto del Envío</label>
+            <select id="batchInputDistribution">
+              <option value="PER_UNIT" selected>Por Unidades (mismo importe por ud)</option>
+              <option value="PROPORTIONAL_COST">Proporcional al Coste (€) del producto</option>
+            </select>
+          </div>
+
+          <div class="form-group flex-1">
+            <label for="batchInputTracking">Nº Seguimiento / Tracking (opcional)</label>
+            <input type="text" id="batchInputTracking" placeholder="Ej: ES123456789CN / SAL / DHL">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="batchInputNotes">Notas del Envío (Transportista, peso kg, agente...)</label>
+          <textarea id="batchInputNotes" rows="2" placeholder="Agente de compra, peso estimado, fecha prevista de llegada..."></textarea>
+        </div>
+
+        <div class="modal-footer" style="padding-top: 1rem; padding-bottom: 0;">
+          <button type="button" class="btn btn-secondary" id="btnCancelBatchEdit">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveBatch">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Lote
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -658,7 +856,9 @@
   <!-- ============================================================ -->
   <div class="modal-overlay modal-lightbox" id="lightboxModal" style="display: none;">
     <div class="lightbox-content">
-      <button class="lightbox-close" id="btnCloseLightbox">✕</button>
+      <button class="lightbox-close" id="btnCloseLightbox">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
       <img id="lightboxImg" src="" alt="Foto en alta resolución">
       <div class="lightbox-caption" id="lightboxCaption"></div>
     </div>

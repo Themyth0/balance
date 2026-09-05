@@ -8,15 +8,18 @@
 // Estado global de la aplicación
 const AppState = {
   articles: [],
+  batches: [],
   exchangeRate: 7.80, // 1 EUR = 7.80 RMB por defecto
   rateLastUpdated: 'Predeterminado',
   currentTheme: 'light',
   currentView: 'grid', // 'grid' | 'table'
   searchTerm: '',
   filterCategory: 'ALL',
+  filterBatch: 'ALL',
   filterStatus: 'ALL',
   sortBy: 'date_desc',
   editingArticleId: null,
+  editingBatchId: null,
   currentPhoto: null, // { type: 'file'|'url', data: string, name: string }
   marketPrices: [] // Array de { id, source, price }
 };
@@ -25,7 +28,7 @@ const AppState = {
 // 1. BASE DE DATOS LOCAL (IndexedDB)
 // ============================================================
 const DB_NAME = 'ImportCalcDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let dbInstance = null;
 
 function initDatabase() {
@@ -38,7 +41,11 @@ function initDatabase() {
         const articleStore = db.createObjectStore('articles', { keyPath: 'id' });
         articleStore.createIndex('category', 'category', { unique: false });
         articleStore.createIndex('status', 'status', { unique: false });
+        articleStore.createIndex('batchId', 'batchId', { unique: false });
         articleStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('batches')) {
+        db.createObjectStore('batches', { keyPath: 'id' });
       }
       if (!db.objectStoreNames.contains('config')) {
         db.createObjectStore('config', { keyPath: 'key' });
@@ -89,9 +96,43 @@ function dbDeleteArticle(id) {
 
 function dbClearAllArticles() {
   return new Promise((resolve, reject) => {
-    const tx = dbInstance.transaction('articles', 'readwrite');
-    const store = tx.objectStore('articles');
-    const request = store.clear();
+    const tx = dbInstance.transaction(['articles', 'batches'], 'readwrite');
+    const storeArticles = tx.objectStore('articles');
+    const storeBatches = tx.objectStore('batches');
+    storeArticles.clear();
+    storeBatches.clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e);
+  });
+}
+
+// Operaciones de Lotes en IndexedDB
+function dbGetAllBatches() {
+  return new Promise((resolve, reject) => {
+    if (!dbInstance || !dbInstance.objectStoreNames.contains('batches')) return resolve([]);
+    const tx = dbInstance.transaction('batches', 'readonly');
+    const store = tx.objectStore('batches');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = (e) => reject(e);
+  });
+}
+
+function dbSaveBatch(batch) {
+  return new Promise((resolve, reject) => {
+    const tx = dbInstance.transaction('batches', 'readwrite');
+    const store = tx.objectStore('batches');
+    const request = store.put(batch);
+    request.onsuccess = () => resolve(batch);
+    request.onerror = (e) => reject(e);
+  });
+}
+
+function dbDeleteBatch(id) {
+  return new Promise((resolve, reject) => {
+    const tx = dbInstance.transaction('batches', 'readwrite');
+    const store = tx.objectStore('batches');
+    const request = store.delete(id);
     request.onsuccess = () => resolve();
     request.onerror = (e) => reject(e);
   });
@@ -137,6 +178,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyTheme(AppState.currentTheme);
     updateTickerDisplay();
 
+    // Cargar lotes
+    AppState.batches = await dbGetAllBatches();
+    populateBatchSelects();
+
     // Cargar artículos
     const articles = await dbGetAllArticles();
     if (articles.length === 0) {
@@ -162,7 +207,9 @@ function applyTheme(theme) {
   document.body.setAttribute('data-theme', theme);
   const btn = document.getElementById('btnThemeToggle');
   if (btn) {
-    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    btn.innerHTML = theme === 'dark' 
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
     btn.title = theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro';
   }
 }
@@ -191,7 +238,7 @@ function updateTickerDisplay() {
 async function fetchLiveExchangeRate() {
   const btn = document.getElementById('btnFetchRateOnline');
   const btnRefresh = document.getElementById('btnRefreshRate');
-  if (btn) btn.textContent = '⏳ Consultando...';
+  if (btn) btn.textContent = 'Consultando...';
   if (btnRefresh) btnRefresh.style.animation = 'spin 1s infinite linear';
 
   try {
@@ -248,7 +295,7 @@ async function fetchLiveExchangeRate() {
       showToast('No se pudo conectar con la API de cambio. Comprueba tu conexión a internet.', 'error');
     }
   } finally {
-    if (btn) btn.textContent = '🌐 Obtener cambio oficial en directo';
+    if (btn) btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Obtener cambio oficial en directo';
     if (btnRefresh) btnRefresh.style.animation = 'none';
   }
 }
@@ -290,6 +337,15 @@ function renderArticles() {
   // Filtro Estado
   if (AppState.filterStatus !== 'ALL') {
     filtered = filtered.filter(a => a.status === AppState.filterStatus);
+  }
+
+  // Filtro Lote
+  if (AppState.filterBatch !== 'ALL') {
+    if (AppState.filterBatch === 'NONE') {
+      filtered = filtered.filter(a => !a.batchId);
+    } else {
+      filtered = filtered.filter(a => a.batchId === AppState.filterBatch);
+    }
   }
 
   // Ordenación
@@ -335,11 +391,11 @@ function renderArticles() {
 function renderGridView(articles, container) {
   container.innerHTML = articles.map(article => {
     const statusLabels = {
-      EN_ESTUDIO: '💡 En estudio',
-      COMPRADO: '📦 Comprado',
-      EN_VENTA: '🏷️ En venta',
-      VENDIDO: '✅ Vendido',
-      DESCARTADO: '❌ Descartado'
+      EN_ESTUDIO: '<span class="status-dot dot-study"></span>En estudio',
+      COMPRADO: '<span class="status-dot dot-bought"></span>Comprado',
+      EN_VENTA: '<span class="status-dot dot-selling"></span>En venta',
+      VENDIDO: '<span class="status-dot dot-sold"></span>Vendido',
+      DESCARTADO: '<span class="status-dot dot-discarded"></span>Descartado'
     };
 
     const qty = article.quantity || 1;
@@ -353,7 +409,7 @@ function renderGridView(articles, container) {
     const photoSrc = article.photo ? article.photo.data : '';
     const imageHtml = photoSrc 
       ? `<img src="${photoSrc}" alt="${escapeHtml(article.name)}" class="card-img" onclick="openLightbox('${photoSrc}', '${escapeHtml(article.name)}')">`
-      : `<div class="card-img-placeholder">📦</div>`;
+      : `<div class="card-img-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>`;
 
     // Comparación vs media
     let marketCompHtml = '';
@@ -363,6 +419,15 @@ function renderGridView(articles, container) {
       marketCompHtml = `<span class="pill-tag">${diffText}</span>`;
     }
 
+    // Batch badge
+    const batchObj = article.batchId ? AppState.batches.find(b => b.id === article.batchId) : null;
+    const batchBadgeHtml = batchObj
+      ? `<span class="batch-badge" title="Lote: ${escapeHtml(batchObj.name)}">\
+<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">\
+<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>\
+<path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> ${escapeHtml(batchObj.name)}</span>`
+      : '';
+
     return `
       <article class="article-card" data-id="${article.id}">
         <div class="card-media">
@@ -370,7 +435,7 @@ function renderGridView(articles, container) {
           <span class="card-badge-status status-${article.status}">
             ${statusLabels[article.status] || article.status}
           </span>
-          <span class="card-badge-qty">📦 ${qty} uds</span>
+          <span class="card-badge-qty">${qty} uds</span>
           ${article.category ? `<span class="card-badge-category">${escapeHtml(article.category)}</span>` : ''}
         </div>
 
@@ -427,11 +492,21 @@ function renderGridView(articles, container) {
         </div>
 
         <div class="card-footer">
-          <small class="text-muted">Tasa: 1€ = ${article.rateApplied ? article.rateApplied.toFixed(2) : AppState.exchangeRate.toFixed(2)}¥</small>
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <small class="text-muted">Tasa: 1€ = ${article.rateApplied ? article.rateApplied.toFixed(2) : AppState.exchangeRate.toFixed(2)}¥</small>
+            ${batchBadgeHtml}
+          </div>
           <div class="card-actions-group">
-            <button class="btn-card-action" onclick="editArticle('${article.id}')" title="Editar">✏️ Editar</button>
-            <button class="btn-card-action" onclick="duplicateArticle('${article.id}')" title="Duplicar">📑</button>
-            <button class="btn-card-action danger" onclick="confirmDeleteArticle('${article.id}')" title="Eliminar">🗑️</button>
+            <button class="btn-card-action" onclick="editArticle('${article.id}')" title="Editar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              <span>Editar</span>
+            </button>
+            <button class="btn-card-action" onclick="duplicateArticle('${article.id}')" title="Duplicar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            </button>
+            <button class="btn-card-action danger" onclick="confirmDeleteArticle('${article.id}')" title="Eliminar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
           </div>
         </div>
       </article>
@@ -441,18 +516,19 @@ function renderGridView(articles, container) {
 
 function renderTableView(articles, tbody) {
   const statusLabels = {
-    EN_ESTUDIO: '💡 En estudio',
-    COMPRADO: '📦 Comprado',
-    EN_VENTA: '🏷️ En venta',
-    VENDIDO: '✅ Vendido',
-    DESCARTADO: '❌ Descartado'
+    EN_ESTUDIO: '<span class="status-dot dot-study"></span>En estudio',
+    COMPRADO: '<span class="status-dot dot-bought"></span>Comprado',
+    EN_VENTA: '<span class="status-dot dot-selling"></span>En venta',
+    VENDIDO: '<span class="status-dot dot-sold"></span>Vendido',
+    DESCARTADO: '<span class="status-dot dot-discarded"></span>Descartado'
   };
+
 
   tbody.innerHTML = articles.map(article => {
     const photoSrc = article.photo ? article.photo.data : '';
     const imgHtml = photoSrc
       ? `<img src="${photoSrc}" class="table-thumb" alt="Foto" onclick="openLightbox('${photoSrc}', '${escapeHtml(article.name)}')">`
-      : `<div class="table-thumb-placeholder">📦</div>`;
+      : `<div class="table-thumb-placeholder"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>`;
 
     const qty = article.quantity || 1;
     const batchCost = (article.totalCostEUR || 0) * qty;
@@ -460,6 +536,7 @@ function renderTableView(articles, tbody) {
     const batchProfit = (article.netProfit || 0) * qty;
 
     const profitColor = batchProfit >= 0 ? 'var(--success)' : 'var(--danger)';
+    const tableBatchObj = article.batchId ? AppState.batches.find(b => b.id === article.batchId) : null;
 
     return `
       <tr>
@@ -469,13 +546,14 @@ function renderTableView(articles, tbody) {
           ${article.notes ? `<small class="text-muted">${escapeHtml(article.notes.substring(0, 45))}${article.notes.length > 45 ? '...' : ''}</small>` : ''}
         </td>
         <td><span class="pill-tag">${escapeHtml(article.category || 'General')}</span></td>
+        <td class="col-batch">${tableBatchObj ? `<span class="batch-badge">${escapeHtml(tableBatchObj.name)}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
         <td><span class="card-badge-status status-${article.status}">${statusLabels[article.status] || article.status}</span></td>
         <td><span class="pill-tag" style="font-weight: 700; font-size: 0.82rem;">${qty} uds</span></td>
         <td>${article.totalCostEUR.toFixed(2)} €</td>
         <td><strong style="color: var(--warning-text);">${batchCost.toFixed(2)} €</strong></td>
-        <td>${article.priceEbay > 0 ? `<span class="platform-chip ebay">eBay ${article.priceEbay.toFixed(2)}€</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
-        <td>${article.priceWallapop > 0 ? `<span class="platform-chip wallapop">Wallp. ${article.priceWallapop.toFixed(2)}€</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
-        <td>${article.priceVinted > 0 ? `<span class="platform-chip vinted">Vinted ${article.priceVinted.toFixed(2)}€</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
+        <td class="col-platform-ebay">${article.priceEbay > 0 ? `<span class="platform-chip ebay">eBay ${article.priceEbay.toFixed(2)}€</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
+        <td class="col-platform-wallapop">${article.priceWallapop > 0 ? `<span class="platform-chip wallapop">Wallp. ${article.priceWallapop.toFixed(2)}€</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
+        <td class="col-platform-vinted">${article.priceVinted > 0 ? `<span class="platform-chip vinted">Vinted ${article.priceVinted.toFixed(2)}€</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
         <td>${article.marketAverage > 0 ? article.marketAverage.toFixed(2) + ' €' : '—'}</td>
         <td style="font-weight: 700; color: var(--brand);">${article.finalPrice.toFixed(2)} €</td>
         <td><strong>${batchRevenue.toFixed(2)} €</strong></td>
@@ -488,8 +566,12 @@ function renderTableView(articles, tbody) {
         </td>
         <td>
           <div class="table-actions">
-            <button class="btn-card-action" onclick="editArticle('${article.id}')" title="Editar">✏️</button>
-            <button class="btn-card-action danger" onclick="confirmDeleteArticle('${article.id}')" title="Eliminar">🗑️</button>
+            <button class="btn-card-action" onclick="editArticle('${article.id}')" title="Editar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            </button>
+            <button class="btn-card-action danger" onclick="confirmDeleteArticle('${article.id}')" title="Eliminar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
           </div>
         </td>
       </tr>
@@ -580,6 +662,10 @@ function openArticleModal(article = null) {
     document.getElementById('inputQuantity').value = article.quantity || 1;
     document.getElementById('inputNotes').value = article.notes || '';
 
+    // Lote asignado
+    document.getElementById('inputBatchId').value = article.batchId || '';
+    updateBatchShippingNote(article.batchId || '');
+
     // Costes
     document.getElementById('inputCostRMB').value = article.costRMB || '';
     document.getElementById('inputCostEUR').value = article.costEUR || '';
@@ -613,6 +699,10 @@ function openArticleModal(article = null) {
     document.getElementById('inputStatus').value = 'EN_VENTA';
     document.getElementById('inputQuantity').value = 1;
 
+    // Lote: ninguno por defecto
+    document.getElementById('inputBatchId').value = '';
+    updateBatchShippingNote('');
+
     // Limpiar campos de plataformas
     document.getElementById('inputPriceEbay').value = '';
     document.getElementById('inputPriceWallapop').value = '';
@@ -621,6 +711,7 @@ function openArticleModal(article = null) {
     // Sin filas de mercado adicionales
     AppState.marketPrices = [];
   }
+
 
   renderMarketPriceRows();
   recalculateModalForm();
@@ -725,7 +816,7 @@ function recalculateModalForm() {
   const summaryEl = document.getElementById('batchFinancialSummary');
   if (finalPrice > 0) {
     const profitColor = batchProfit >= 0 ? 'var(--success-text)' : 'var(--danger-text)';
-    summaryEl.innerHTML = `📊 <strong>Cuentas del Lote Completo (${quantity} uds):</strong> Inversión: <strong>${batchCost.toFixed(2)} €</strong> | Facturación: <strong>${batchRevenue.toFixed(2)} €</strong> | Ganancia limpia total: <strong style="color: ${profitColor};">${batchProfit >= 0 ? '+' : ''}${batchProfit.toFixed(2)} €</strong>`;
+    summaryEl.innerHTML = `<strong>Resumen del Lote (${quantity} uds):</strong> Inversión: <strong>${batchCost.toFixed(2)} €</strong> | Facturación: <strong>${batchRevenue.toFixed(2)} €</strong> | Ganancia limpia: <strong style="color: ${profitColor};">${batchProfit >= 0 ? '+' : ''}${batchProfit.toFixed(2)} €</strong>`;
     summaryEl.style.display = 'block';
   } else {
     summaryEl.style.display = 'none';
@@ -736,14 +827,14 @@ function recalculateModalForm() {
   if (finalPrice > 0 && marketAvg > 0) {
     const diff = finalPrice - marketAvg;
     if (Math.abs(diff) < 0.05) {
-      noteEl.textContent = '⚖️ Tu precio es exactamente igual a la media de mercado.';
-      noteEl.style.color = 'var(--primary)';
+      noteEl.innerHTML = '<span class="status-dot dot-bought"></span> Tu precio es exactamente igual a la media de mercado.';
+      noteEl.style.color = 'var(--brand)';
     } else if (diff < 0) {
-      noteEl.textContent = `🟢 ¡Precio competitivo! Estás ${Math.abs(diff).toFixed(2)} € por debajo de la media (${marketAvg.toFixed(2)} €).`;
-      noteEl.style.color = 'var(--success-text)';
+      noteEl.innerHTML = `<span class="status-dot dot-selling"></span> <strong>Precio competitivo</strong>: estás ${Math.abs(diff).toFixed(2)} € por debajo de la media (${marketAvg.toFixed(2)} €).`;
+      noteEl.style.color = 'var(--emerald-text)';
     } else {
-      noteEl.textContent = `🟡 Estás ${diff.toFixed(2)} € por encima de la media de mercado (${marketAvg.toFixed(2)} €).`;
-      noteEl.style.color = 'var(--warning-text)';
+      noteEl.innerHTML = `<span class="status-dot dot-study"></span> Estás ${diff.toFixed(2)} € por encima de la media de mercado (${marketAvg.toFixed(2)} €).`;
+      noteEl.style.color = 'var(--amber-text)';
     }
   } else {
     noteEl.textContent = 'Introduce el precio final para comparar con la media de mercado.';
@@ -761,7 +852,9 @@ function renderMarketPriceRows() {
         <span class="input-prefix">€</span>
         <input type="number" step="0.01" min="0" value="${item.price}" placeholder="0.00" oninput="updateMarketPriceItem('${item.id}', 'price', this.value)">
       </div>
-      <button type="button" class="btn-remove-row" onclick="removeMarketPriceRow('${item.id}')" title="Quitar">✕</button>
+      <button type="button" class="btn-remove-row" onclick="removeMarketPriceRow('${item.id}')" title="Quitar">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
   `).join('');
 }
@@ -914,6 +1007,12 @@ async function saveArticleHandler(e) {
   const marginPercent = finalPrice > 0 ? (netProfit / finalPrice) * 100 : 0;
   const roi = totalCostEUR > 0 ? (netProfit / totalCostEUR) * 100 : 0;
 
+  // Lote asignado
+  const selectedBatchId = document.getElementById('inputBatchId').value || null;
+  // Guardar batchId previo para recalcular el lote antiguo si cambió
+  const prevArticle = AppState.editingArticleId ? AppState.articles.find(a => a.id === AppState.editingArticleId) : null;
+  const prevBatchId = prevArticle ? (prevArticle.batchId || null) : null;
+
   const articleData = {
     id: AppState.editingArticleId || Date.now().toString(),
     name,
@@ -921,6 +1020,7 @@ async function saveArticleHandler(e) {
     status: document.getElementById('inputStatus').value,
     quantity,
     notes: document.getElementById('inputNotes').value.trim(),
+    batchId: selectedBatchId,
     costRMB,
     costEUR,
     shippingCost,
@@ -961,11 +1061,21 @@ async function saveArticleHandler(e) {
       showToast('Artículo guardado correctamente', 'success');
     }
 
+    // Recalcular lote nuevo
+    if (selectedBatchId) {
+      await recalculateBatchArticles(selectedBatchId);
+    }
+    // Si cambió de lote, recalcular el lote anterior también
+    if (prevBatchId && prevBatchId !== selectedBatchId) {
+      await recalculateBatchArticles(prevBatchId);
+    }
+
     closeArticleModal();
     renderArticles();
   } catch (error) {
     console.error('Error al guardar artículo:', error);
     showToast('Error al guardar el artículo en la base de datos', 'error');
+
   }
 }
 
@@ -1035,11 +1145,13 @@ function exportToCalc(format = 'ods') {
       const batchCost = (a.totalCostEUR || 0) * qty;
       const batchRevenue = (a.finalPrice || 0) * qty;
       const batchProfit = (a.netProfit || 0) * qty;
+      const batchObj = a.batchId ? AppState.batches.find(b => b.id === a.batchId) : null;
 
       return {
         'Nº': index + 1,
         'Artículo': a.name,
         'Categoría': a.category || 'General',
+        'Lote / Envío': batchObj ? batchObj.name : 'Sin lote',
         'Estado': a.status,
         'Cantidad (Uds)': qty,
         'Coste (¥ RMB)': Number(a.costRMB.toFixed(2)),
@@ -1073,6 +1185,7 @@ function exportToCalc(format = 'ods') {
       { wch: 5 },  // Nº
       { wch: 32 }, // Artículo
       { wch: 18 }, // Categoría
+      { wch: 22 }, // Lote / Envío
       { wch: 14 }, // Estado
       { wch: 14 }, // Cantidad Uds
       { wch: 14 }, // Coste RMB
@@ -1097,6 +1210,7 @@ function exportToCalc(format = 'ods') {
       { wch: 14 }, // Fecha
       { wch: 30 }  // Notas
     ];
+
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Artículos Importación');
@@ -1232,6 +1346,19 @@ function handleRestoreBackup(file) {
 // 12. DATOS DE EJEMPLO INICIALES
 // ============================================================
 async function loadDemoData() {
+  // Lote de demostración
+  const demoBatch = {
+    id: 'demo-batch-1',
+    name: 'Lote Septiembre #1 — Tecnología',
+    totalShippingCost: 32.00,
+    distributionMethod: 'PER_UNIT',
+    status: 'RECIBIDO',
+    tracking: 'ES9999999999CN',
+    notes: 'Caja 5.2kg via agente. Entregada el 03/09.',
+    createdAt: Date.now() - 3600000 * 24 * 5,
+    updatedAt: Date.now()
+  };
+
   const demoItems = [
     {
       id: 'demo-1',
@@ -1239,13 +1366,14 @@ async function loadDemoData() {
       category: 'Electrónica',
       status: 'EN_VENTA',
       quantity: 12,
+      batchId: 'demo-batch-1',
       notes: 'Batería 30h, cancelación activa de ruido, conector USB-C. Proveedor Shenzhen Tech.',
       costRMB: 62.50,
       costEUR: 8.01,
-      shippingCost: 1.50,
+      shippingCost: 1.78, // prorrateado del lote: 32€ / 18 uds totales (12+6)
       customsPercent: 0,
       feePercent: 5.0,
-      totalCostEUR: 10.46,
+      totalCostEUR: 10.74,
       priceEbay: 21.99,
       priceWallapop: 18.00,
       priceVinted: 16.50,
@@ -1254,9 +1382,9 @@ async function loadDemoData() {
       marketMin: 16.50,
       marketMax: 21.99,
       finalPrice: 18.90,
-      netProfit: 8.44,
-      marginPercent: 44.7,
-      roi: 80.7,
+      netProfit: 8.16,
+      marginPercent: 43.2,
+      roi: 76.0,
       rateApplied: 7.80,
       photo: {
         type: 'url',
@@ -1272,13 +1400,14 @@ async function loadDemoData() {
       category: 'Informática',
       status: 'COMPRADO',
       quantity: 6,
+      batchId: 'demo-batch-1',
       notes: 'Aluminio anodizado, 6 posiciones de altura, funda de terciopelo incluida.',
       costRMB: 31.20,
       costEUR: 4.00,
-      shippingCost: 1.20,
+      shippingCost: 1.78, // prorrateado del lote
       customsPercent: 0,
       feePercent: 0,
-      totalCostEUR: 5.20,
+      totalCostEUR: 5.78,
       priceEbay: 15.99,
       priceWallapop: 12.00,
       priceVinted: 13.50,
@@ -1287,9 +1416,9 @@ async function loadDemoData() {
       marketMin: 12.00,
       marketMax: 15.99,
       finalPrice: 13.99,
-      netProfit: 8.79,
-      marginPercent: 62.8,
-      roi: 169.0,
+      netProfit: 8.21,
+      marginPercent: 58.7,
+      roi: 142.0,
       rateApplied: 7.80,
       photo: {
         type: 'url',
@@ -1334,17 +1463,336 @@ async function loadDemoData() {
     }
   ];
 
+  await dbSaveBatch(demoBatch);
+  AppState.batches = [demoBatch];
+  populateBatchSelects();
+
   for (const item of demoItems) {
     await dbSaveArticle(item);
   }
 
   AppState.articles = demoItems;
   renderArticles();
-  showToast('Se han cargado 3 artículos de ejemplo', 'info');
+  showToast('Se han cargado 3 artículos y 1 lote de ejemplo', 'info');
 }
+
+
+
+
+// ============================================================
+// 12b. LÓGICA DE LOTES Y ENVÍOS CONSOLIDADOS
+// ============================================================
+
+/**
+ * Puebla los selects #inputBatchId (modal de artículo) y #filterBatch (barra de filtros)
+ * con los lotes disponibles en AppState.batches.
+ */
+function populateBatchSelects() {
+  const inputBatchId = document.getElementById('inputBatchId');
+  const filterBatch = document.getElementById('filterBatch');
+
+  // Build options HTML for batch selects
+  const batchOptionsHtml = AppState.batches.map(b =>
+    `<option value="${b.id}">${escapeHtml(b.name)}</option>`
+  ).join('');
+
+  if (inputBatchId) {
+    const currentVal = inputBatchId.value;
+    inputBatchId.innerHTML = `<option value="">Sin lote (Envío individual)</option>${batchOptionsHtml}`;
+    inputBatchId.value = currentVal;
+  }
+
+  if (filterBatch) {
+    const currentFilter = filterBatch.value;
+    filterBatch.innerHTML = `<option value="ALL">Todos los lotes</option><option value="NONE">Sin lote asignado</option>${batchOptionsHtml}`;
+    filterBatch.value = currentFilter || 'ALL';
+  }
+}
+
+/**
+ * Muestra u oculta la nota de envío prorrateado del lote en el modal de artículo.
+ */
+function updateBatchShippingNote(batchId) {
+  const noteEl = document.getElementById('batchShippingNote');
+  const noteText = document.getElementById('batchShippingNoteText');
+  if (!noteEl) return;
+
+  if (batchId) {
+    const batch = AppState.batches.find(b => b.id === batchId);
+    if (batch) {
+      const batchArticles = AppState.articles.filter(a => a.batchId === batchId);
+      const totalUnits = batchArticles.reduce((sum, a) => sum + (a.quantity || 1), 0);
+      const unitShipping = totalUnits > 0 ? batch.totalShippingCost / totalUnits : batch.totalShippingCost;
+      if (noteText) noteText.textContent = `Envío prorrateado del Lote "${batch.name}": ${unitShipping.toFixed(2)} €/ud (${batch.totalShippingCost.toFixed(2)} € ÷ ${totalUnits} uds)`;
+      noteEl.style.display = 'flex';
+      // Pre-fill shipping cost field
+      const shippingInput = document.getElementById('inputShippingCost');
+      if (shippingInput) {
+        shippingInput.value = unitShipping.toFixed(2);
+        recalculateModalForm();
+      }
+    }
+  } else {
+    noteEl.style.display = 'none';
+  }
+}
+
+/**
+ * Recalcula el coste de envío unitario de todos los artículos de un lote
+ * distribuyendo batch.totalShippingCost entre la suma de unidades del lote.
+ */
+async function recalculateBatchArticles(batchId) {
+  if (!batchId) return;
+
+  const batch = AppState.batches.find(b => b.id === batchId);
+  if (!batch) return;
+
+  const batchArticles = AppState.articles.filter(a => a.batchId === batchId);
+  if (batchArticles.length === 0) return;
+
+  const totalUnits = batchArticles.reduce((sum, a) => sum + (a.quantity || 1), 0);
+  const totalCostForProportion = batchArticles.reduce((sum, a) => sum + (a.costEUR || 0) * (a.quantity || 1), 0);
+
+  for (const article of batchArticles) {
+    let unitShipping;
+    if (batch.distributionMethod === 'PROPORTIONAL_COST' && totalCostForProportion > 0) {
+      const proportion = ((article.costEUR || 0) * (article.quantity || 1)) / totalCostForProportion;
+      const articleShippingTotal = batch.totalShippingCost * proportion;
+      unitShipping = articleShippingTotal / (article.quantity || 1);
+    } else {
+      // PER_UNIT (default)
+      unitShipping = batch.totalShippingCost / (totalUnits || 1);
+    }
+
+    const customsAmount = (article.costEUR || 0) * ((article.customsPercent || 0) / 100);
+    const feeAmount = (article.finalPrice || 0) * ((article.feePercent || 0) / 100);
+    const totalCostEUR = (article.costEUR || 0) + unitShipping + customsAmount + feeAmount;
+
+    const netProfit = (article.finalPrice || 0) - totalCostEUR;
+    const marginPercent = article.finalPrice > 0 ? (netProfit / article.finalPrice) * 100 : 0;
+    const roi = totalCostEUR > 0 ? (netProfit / totalCostEUR) * 100 : 0;
+    const qty = article.quantity || 1;
+
+    const updated = {
+      ...article,
+      shippingCost: unitShipping,
+      totalCostEUR,
+      totalBatchCostEUR: totalCostEUR * qty,
+      totalBatchProfit: netProfit * qty,
+      totalBatchRevenue: (article.finalPrice || 0) * qty,
+      netProfit,
+      marginPercent,
+      roi,
+      updatedAt: Date.now()
+    };
+
+    await dbSaveArticle(updated);
+    const idx = AppState.articles.findIndex(a => a.id === article.id);
+    if (idx >= 0) AppState.articles[idx] = updated;
+  }
+}
+
+/**
+ * Renderiza la lista de lotes en el modal #batchesModal.
+ */
+function renderBatchesList() {
+  const container = document.getElementById('batchesListContainer');
+  if (!container) return;
+
+  if (AppState.batches.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 0.75rem; display: block;">
+          <path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+          <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+        </svg>
+        <p style="margin: 0; font-size: 0.92rem;">Aún no has creado ningún lote. Usa el botón <strong>Nuevo Lote</strong> para empezar.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const statusBadge = {
+    EN_PREPARACION: '<span class="batch-status-badge badge-prep">En preparación</span>',
+    EN_CAMINO: '<span class="batch-status-badge badge-transit">En camino</span>',
+    RECIBIDO: '<span class="batch-status-badge badge-received">Recibido</span>'
+  };
+
+  container.innerHTML = AppState.batches.map(batch => {
+    const articles = AppState.articles.filter(a => a.batchId === batch.id);
+    const totalUnits = articles.reduce((s, a) => s + (a.quantity || 1), 0);
+    const totalCost = articles.reduce((s, a) => s + (a.totalCostEUR || 0) * (a.quantity || 1), 0);
+    const totalProfit = articles.reduce((s, a) => s + (a.netProfit || 0) * (a.quantity || 1), 0);
+    const profitColor = totalProfit >= 0 ? 'var(--success-text)' : 'var(--danger-text)';
+
+    return `
+      <div class="batch-card">
+        <div class="batch-card-header">
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.3rem;">
+              ${statusBadge[batch.status] || ''}
+              <strong style="font-size: 0.97rem;">${escapeHtml(batch.name)}</strong>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">
+              ${articles.length} artículos · ${totalUnits} unidades totales
+              ${batch.tracking ? ` · <span style="font-family: monospace;">${escapeHtml(batch.tracking)}</span>` : ''}
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.4rem; flex-shrink: 0;">
+            <button class="btn btn-secondary btn-sm" onclick="openBatchEditModal('${batch.id}')" title="Editar lote">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              Editar
+            </button>
+            <button class="btn btn-danger-outline btn-sm" onclick="deleteBatch('${batch.id}')" title="Eliminar lote">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="batch-metrics-grid">
+          <div class="batch-metric-item">
+            <span class="batch-metric-lbl">Envío total</span>
+            <strong class="batch-metric-val">${(batch.totalShippingCost || 0).toFixed(2)} €</strong>
+          </div>
+          <div class="batch-metric-item">
+            <span class="batch-metric-lbl">Por unidad</span>
+            <strong class="batch-metric-val">${totalUnits > 0 ? (batch.totalShippingCost / totalUnits).toFixed(2) : '0.00'} €/ud</strong>
+          </div>
+          <div class="batch-metric-item">
+            <span class="batch-metric-lbl">Inversión total</span>
+            <strong class="batch-metric-val" style="color: var(--warning-text);">${totalCost.toFixed(2)} €</strong>
+          </div>
+          <div class="batch-metric-item">
+            <span class="batch-metric-lbl">Beneficio estimado</span>
+            <strong class="batch-metric-val" style="color: ${profitColor};">${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)} €</strong>
+          </div>
+        </div>
+        ${batch.notes ? `<p style="margin: 0.6rem 0 0; font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(batch.notes)}</p>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Abre el modal de crear/editar lote.
+ */
+function openBatchEditModal(batchId = null) {
+  AppState.editingBatchId = batchId;
+  const modal = document.getElementById('batchEditModal');
+  const titleEl = document.getElementById('batchEditModalTitle');
+  const form = document.getElementById('batchForm');
+  form.reset();
+
+  if (batchId) {
+    const batch = AppState.batches.find(b => b.id === batchId);
+    if (batch) {
+      titleEl.textContent = 'Editar Lote';
+      document.getElementById('batchEditId').value = batch.id;
+      document.getElementById('batchInputName').value = batch.name;
+      document.getElementById('batchInputShippingCost').value = batch.totalShippingCost || 0;
+      document.getElementById('batchInputStatus').value = batch.status || 'EN_CAMINO';
+      document.getElementById('batchInputDistribution').value = batch.distributionMethod || 'PER_UNIT';
+      document.getElementById('batchInputTracking').value = batch.tracking || '';
+      document.getElementById('batchInputNotes').value = batch.notes || '';
+    }
+  } else {
+    titleEl.textContent = 'Nuevo Lote de Envío';
+    document.getElementById('batchEditId').value = '';
+  }
+
+  modal.style.display = 'flex';
+  document.getElementById('batchInputName').focus();
+}
+
+/**
+ * Guarda el lote (crear o editar) y recalcula artículos.
+ */
+async function saveBatchHandler(e) {
+  e.preventDefault();
+
+  const name = document.getElementById('batchInputName').value.trim();
+  if (!name) {
+    showToast('El nombre del lote es obligatorio.', 'error');
+    return;
+  }
+
+  const totalShippingCost = parseFloat(document.getElementById('batchInputShippingCost').value) || 0;
+  const batchData = {
+    id: AppState.editingBatchId || Date.now().toString(),
+    name,
+    totalShippingCost,
+    distributionMethod: document.getElementById('batchInputDistribution').value,
+    status: document.getElementById('batchInputStatus').value,
+    tracking: document.getElementById('batchInputTracking').value.trim(),
+    notes: document.getElementById('batchInputNotes').value.trim(),
+    createdAt: AppState.editingBatchId
+      ? (AppState.batches.find(b => b.id === AppState.editingBatchId)?.createdAt || Date.now())
+      : Date.now(),
+    updatedAt: Date.now()
+  };
+
+  try {
+    await dbSaveBatch(batchData);
+
+    const existingIdx = AppState.batches.findIndex(b => b.id === batchData.id);
+    if (existingIdx >= 0) {
+      AppState.batches[existingIdx] = batchData;
+    } else {
+      AppState.batches.push(batchData);
+    }
+
+    populateBatchSelects();
+    await recalculateBatchArticles(batchData.id);
+    renderArticles();
+    renderBatchesList();
+
+    document.getElementById('batchEditModal').style.display = 'none';
+    AppState.editingBatchId = null;
+
+    showToast(`Lote "${name}" guardado correctamente`, 'success');
+  } catch (error) {
+    console.error('Error al guardar lote:', error);
+    showToast('Error al guardar el lote', 'error');
+  }
+}
+
+/**
+ * Elimina un lote y desvincula sus artículos.
+ */
+async function deleteBatch(batchId) {
+  const batch = AppState.batches.find(b => b.id === batchId);
+  const name = batch ? batch.name : 'este lote';
+
+  if (!confirm(`¿Eliminar el lote "${name}"? Los artículos asociados quedarán sin lote asignado.`)) return;
+
+  try {
+    await dbDeleteBatch(batchId);
+    AppState.batches = AppState.batches.filter(b => b.id !== batchId);
+
+    // Desvincular artículos
+    for (const article of AppState.articles.filter(a => a.batchId === batchId)) {
+      const updated = { ...article, batchId: null, updatedAt: Date.now() };
+      await dbSaveArticle(updated);
+      const idx = AppState.articles.findIndex(a => a.id === article.id);
+      if (idx >= 0) AppState.articles[idx] = updated;
+    }
+
+    populateBatchSelects();
+    renderArticles();
+    renderBatchesList();
+    showToast(`Lote "${name}" eliminado`, 'info');
+  } catch (error) {
+    console.error('Error al eliminar lote:', error);
+    showToast('Error al eliminar el lote', 'error');
+  }
+}
+
+// Exportar funciones de lote al ámbito global para onclicks inline
+window.openBatchEditModal = openBatchEditModal;
+window.deleteBatch = deleteBatch;
 
 // ============================================================
 // 13. CONFIGURACIÓN DE EVENT LISTENERS
+
 // ============================================================
 function setupEventListeners() {
   // Tema
@@ -1611,9 +2059,11 @@ function setupEventListeners() {
   document.getElementById('fileRestoreBackup').addEventListener('change', (e) => handleRestoreBackup(e.target.files[0]));
 
   document.getElementById('btnClearAllData').addEventListener('click', async () => {
-    if (confirm('⚠️ ¿Estás seguro de que deseas eliminar TODOS los artículos del catálogo? Esta acción no se puede deshacer.')) {
+    if (confirm('¿Estás seguro de que deseas eliminar TODOS los artículos y lotes del catálogo? Esta acción no se puede deshacer.')) {
       await dbClearAllArticles();
       AppState.articles = [];
+      AppState.batches = [];
+      populateBatchSelects();
       renderArticles();
       backupModal.style.display = 'none';
       showToast('Catálogo vaciado con éxito', 'info');
@@ -1631,6 +2081,52 @@ function setupEventListeners() {
       document.querySelectorAll('.modal-overlay').forEach(modal => modal.style.display = 'none');
     }
   });
+
+  // ---- Lotes y Envíos Consolidados ----
+  // Abrir modal de listado de lotes
+  document.getElementById('btnOpenBatchesModal').addEventListener('click', () => {
+    renderBatchesList();
+    document.getElementById('batchesModal').style.display = 'flex';
+  });
+
+  document.getElementById('btnCloseBatchesModal').addEventListener('click', () => {
+    document.getElementById('batchesModal').style.display = 'none';
+  });
+
+  // Botón Nuevo Lote dentro del modal de listado
+  document.getElementById('btnCreateNewBatch').addEventListener('click', () => {
+    openBatchEditModal(null);
+  });
+
+  // Botón + Nuevo Lote rápido desde el formulario de artículo
+  document.getElementById('btnQuickCreateBatch').addEventListener('click', () => {
+    openBatchEditModal(null);
+  });
+
+  // Cerrar modal de edición de lote
+  document.getElementById('btnCloseBatchEditModal').addEventListener('click', () => {
+    document.getElementById('batchEditModal').style.display = 'none';
+    AppState.editingBatchId = null;
+  });
+
+  document.getElementById('btnCancelBatchEdit').addEventListener('click', () => {
+    document.getElementById('batchEditModal').style.display = 'none';
+    AppState.editingBatchId = null;
+  });
+
+  // Submit del formulario de lote
+  document.getElementById('batchForm').addEventListener('submit', saveBatchHandler);
+
+  // Cambio de lote en el modal de artículo → actualizar nota de envío prorrateado
+  document.getElementById('inputBatchId').addEventListener('change', (e) => {
+    updateBatchShippingNote(e.target.value);
+  });
+
+  // Filtro por lote en la barra de filtros
+  document.getElementById('filterBatch').addEventListener('change', (e) => {
+    AppState.filterBatch = e.target.value;
+    renderArticles();
+  });
 }
 
 // ============================================================
@@ -1642,13 +2138,13 @@ function showToast(message, type = 'info') {
   toast.className = `toast ${type}`;
 
   const icons = {
-    success: '✅',
-    error: '❌',
-    warning: '⚠️',
-    info: 'ℹ️'
+    success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>',
+    warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>',
+    info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>'
   };
 
-  toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${escapeHtml(message)}</span>`;
+  toast.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${escapeHtml(message)}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
