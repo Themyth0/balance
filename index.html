@@ -49,8 +49,8 @@
         Calculadora ¥/€
       </button>
 
-      <!-- Botón Gestión de Lotes y Envíos Consolidados -->
-      <button class="btn btn-secondary btn-sm" id="btnOpenBatchesModal" title="Gestionar Lotes y Envíos Consolidados">
+      <!-- Botón Inicio / Lotes -->
+      <button class="btn btn-secondary btn-sm" id="btnNavBatchesHome" title="Ver todos los Lotes de Envío">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
         Lotes / Envíos
       </button>
@@ -89,8 +89,14 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
       </button>
 
+      <!-- Botón Nuevo Lote -->
+      <button class="btn btn-secondary" id="btnNavNewBatch" title="Crear un nuevo Lote de Envío">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nuevo Lote
+      </button>
+
       <!-- Botón Añadir Artículo -->
-      <button class="btn btn-primary" id="btnNewArticle">
+      <button class="btn btn-primary" id="btnNewArticle" title="Añadir un nuevo artículo">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nuevo Artículo
       </button>
@@ -100,155 +106,285 @@
   <!-- CONTENEDOR PRINCIPAL -->
   <main class="main-container">
 
-    <!-- TARJETAS DE MÉTRICAS GLOBALES (KPIs) -->
-    <section class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-icon blue">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+    <!-- ============================================================ -->
+    <!-- VISTA 1: PÁGINA PRINCIPAL DE LOTES (HOME / MASTER)           -->
+    <!-- ============================================================ -->
+    <div id="batchesHomeView">
+      <!-- KPIS GLOBALES DE LOTES -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon blue">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Lotes Registrados</span>
+            <span class="kpi-value" id="kpiMainTotalBatches">0</span>
+            <span class="kpi-subtext" id="kpiMainTotalUnits">0 artículos · 0 uds</span>
+          </div>
         </div>
-        <div class="kpi-info">
-          <span class="kpi-label">Catálogo & Stock</span>
-          <span class="kpi-value" id="kpiTotalArticles">0</span>
+
+        <div class="kpi-card">
+          <div class="kpi-icon orange">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Inversión Total en Lotes</span>
+            <span class="kpi-value" id="kpiMainTotalCost">0,00 €</span>
+            <span class="kpi-subtext" id="kpiMainTotalShipping">0,00 € en envíos</span>
+          </div>
         </div>
-      </div>
 
-      <div class="kpi-card">
-        <div class="kpi-icon orange">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+        <div class="kpi-card">
+          <div class="kpi-icon purple">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Venta Potencial Total</span>
+            <span class="kpi-value" id="kpiMainTotalRevenue">0,00 €</span>
+            <span class="kpi-subtext" id="kpiMainTotalWeight">⚖️ 0.00 kg calculados</span>
+          </div>
         </div>
-        <div class="kpi-info">
-          <span class="kpi-label">Inversión Prevista</span>
-          <span class="kpi-value" id="kpiTotalCost">0,00 €</span>
-          <span class="kpi-subtext" id="kpiTotalCostRMB">¥0 RMB</span>
+
+        <div class="kpi-card highlight">
+          <div class="kpi-icon green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Beneficio Neto Total</span>
+            <span class="kpi-value green-text" id="kpiMainTotalProfit">+0,00 €</span>
+            <span class="kpi-subtext" id="kpiMainAverageMargin">Margen medio: 0.0%</span>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="kpi-card">
-        <div class="kpi-icon purple">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+      <!-- BARRA DE HERRAMIENTAS DE LOTES -->
+      <section class="toolbar" style="margin-bottom: 1.25rem;">
+        <div class="search-box" style="flex: 1; min-width: 240px;">
+          <span class="search-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </span>
+          <input type="text" id="batchSearchInput" placeholder="Buscar lote por nombre o tracking..." autocomplete="off">
         </div>
-        <div class="kpi-info">
-          <span class="kpi-label">Venta Potencial</span>
-          <span class="kpi-value" id="kpiTotalRevenue">0,00 €</span>
-          <span class="kpi-subtext" id="kpiAveragePrice">Media: 0,00 €/ud</span>
-        </div>
-      </div>
 
-      <div class="kpi-card highlight">
-        <div class="kpi-icon green">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-        </div>
-        <div class="kpi-info">
-          <span class="kpi-label">Beneficio Neto Estimado</span>
-          <span class="kpi-value green-text" id="kpiTotalProfit">+0,00 €</span>
-          <span class="kpi-subtext" id="kpiAverageMargin">Margen medio: 0.0%</span>
-        </div>
-      </div>
-    </section>
+        <div class="filters-group">
+          <select id="batchStatusFilter" class="select-input">
+            <option value="ALL">Todos los estados</option>
+            <option value="EN_PREPARACION">En preparación</option>
+            <option value="EN_CAMINO">En camino / Tránsito</option>
+            <option value="RECIBIDO">Recibido / Entregado</option>
+          </select>
 
-    <!-- BARRA DE HERRAMIENTAS: Búsqueda, Filtros y Vistas -->
-    <section class="toolbar">
-      <div class="search-box">
-        <span class="search-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        </span>
-        <input type="text" id="searchInput" placeholder="Buscar por nombre, categoría o notas..." autocomplete="off">
-        <button class="btn-clear" id="btnClearSearch" title="Borrar búsqueda" style="display:none;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-
-      <div class="filters-group">
-        <select id="filterCategory" class="select-input">
-          <option value="ALL">Todas las categorías</option>
-        </select>
-
-        <select id="filterBatch" class="select-input">
-          <option value="ALL">Todos los lotes</option>
-          <option value="NONE">Sin lote asignado</option>
-        </select>
-
-        <select id="filterStatus" class="select-input">
-          <option value="ALL">Todos los estados</option>
-          <option value="EN_ESTUDIO">En estudio</option>
-          <option value="COMPRADO">Comprado / En camino</option>
-          <option value="EN_VENTA">En venta (Stock)</option>
-          <option value="VENDIDO">Vendido</option>
-          <option value="DESCARTADO">Descartado</option>
-        </select>
-
-        <select id="sortBy" class="select-input">
-          <option value="date_desc">Fecha (Más recientes)</option>
-          <option value="margin_desc">Mayor margen (%)</option>
-          <option value="profit_desc">Mayor beneficio (€)</option>
-          <option value="cost_asc">Menor coste (€)</option>
-          <option value="name_asc">Nombre (A-Z)</option>
-        </select>
-
-        <div class="view-toggle">
-          <button class="btn-view active" id="btnViewGrid" title="Vista en Cuadrícula">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-            <span>Cuadrícula</span>
-          </button>
-          <button class="btn-view" id="btnViewTable" title="Vista en Tabla">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/><line x1="8" x2="8" y1="3" y2="21"/></svg>
-            <span>Tabla</span>
+          <button class="btn btn-primary" id="btnMainCreateBatch">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo Lote
           </button>
         </div>
+      </section>
+
+      <!-- CUADRÍCULA DE LOTES PRINCIPALES -->
+      <section id="batchesGridMain" class="batches-main-grid">
+        <!-- Inyectado dinámicamente con JS -->
+      </section>
+
+      <!-- ESTADO VACÍO SI NO HAY LOTES -->
+      <div id="batchesEmptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        </div>
+        <h3>No tienes ningún lote de envío registrado</h3>
+        <p>Crea tu primer lote para organizar tus pedidos o carga los datos de demostración.</p>
+        <div class="empty-actions">
+          <button class="btn btn-primary" id="btnEmptyCreateBatch">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Crear Primer Lote
+          </button>
+          <button class="btn btn-secondary" id="btnLoadDemoMain">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V2"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+            Cargar Datos de Ejemplo
+          </button>
+        </div>
       </div>
-    </section>
+    </div>
 
-    <!-- VISTA CUADRÍCULA DE ARTÍCULOS -->
-    <section id="articlesGrid" class="articles-grid">
-      <!-- Se inyecta dinámicamente con JS -->
-    </section>
+    <!-- ============================================================ -->
+    <!-- VISTA 2: DENTRO DE UN LOTE (DETALLE CON KPIS Y ARTÍCULOS)    -->
+    <!-- ============================================================ -->
+    <div id="batchDetailView" style="display: none;">
+      <!-- CABECERA Y NAVEGACIÓN DEL LOTE (BREADCRUMB) -->
+      <div class="batch-detail-header">
+        <div class="batch-detail-left">
+          <button class="btn btn-secondary btn-sm" id="btnBackToBatches" title="Volver a la lista de lotes">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Volver a Lotes
+          </button>
+          <div class="batch-detail-title-wrap">
+            <h2 id="batchDetailTitle" class="batch-detail-title">Nombre del Lote</h2>
+            <div class="batch-detail-meta" id="batchDetailMeta">
+              <!-- Badges dinámicos de estado, tracking y peso -->
+            </div>
+          </div>
+        </div>
 
-    <!-- VISTA TABLA DE ARTÍCULOS -->
-    <section id="articlesTableView" class="articles-table-container" style="display: none;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Foto</th>
-            <th>Artículo</th>
-            <th>Categoría</th>
-            <th class="col-batch">Lote / Envío</th>
-            <th>Estado</th>
-            <th>Uds</th>
-            <th>Coste Real (€)</th>
-            <th>Inversión (€)</th>
-            <th class="col-platform-ebay">eBay (€)</th>
-            <th class="col-platform-wallapop">Wallapop (€)</th>
-            <th class="col-platform-vinted">Vinted (€)</th>
-            <th>Media (€)</th>
-            <th>P. Venta Unit.</th>
-            <th>Venta Total (€)</th>
-            <th>Beneficio Total</th>
-            <th>Margen (%)</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="articlesTableBody">
-          <!-- Se inyecta dinámicamente con JS -->
-        </tbody>
-      </table>
-    </section>
-
-    <!-- ESTADO VACÍO (Si no hay artículos) -->
-    <div id="emptyState" class="empty-state" style="display: none;">
-      <div class="empty-icon">
-        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        <div class="batch-detail-actions">
+          <button class="btn btn-secondary btn-sm" id="btnBatchDetailAssign" title="Seleccionar con el ratón qué productos van en este paquete">
+            📦 Asignar con Ratón
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btnBatchDetailEdit" title="Editar datos del lote (coste de envío, peso, estado)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            Editar Lote
+          </button>
+          <button class="btn btn-primary btn-sm" id="btnBatchDetailAddArticle">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Añadir Artículo al Lote
+          </button>
+        </div>
       </div>
-      <h3>No hay artículos registrados o no coinciden con el filtro</h3>
-      <p>Comienza añadiendo un nuevo artículo o carga ejemplos de prueba para ver el funcionamiento.</p>
-      <div class="empty-actions">
-        <button class="btn btn-primary" id="btnEmptyAdd">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Añadir Artículo
-        </button>
-        <button class="btn btn-secondary" id="btnLoadDemo">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V2"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
-          Cargar Datos de Ejemplo
-        </button>
+
+      <!-- KPIS DEL LOTE SELECCIONADO (Idéntico a la captura del usuario) -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon blue">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Catálogo & Stock</span>
+            <span class="kpi-value" id="kpiTotalArticles">0</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon orange">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Inversión Prevista</span>
+            <span class="kpi-value" id="kpiTotalCost">0,00 €</span>
+            <span class="kpi-subtext" id="kpiTotalCostRMB">¥0 RMB</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon purple">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Venta Potencial</span>
+            <span class="kpi-value" id="kpiTotalRevenue">0,00 €</span>
+            <span class="kpi-subtext" id="kpiAveragePrice">Media: 0,00 €/ud</span>
+          </div>
+        </div>
+
+        <div class="kpi-card highlight">
+          <div class="kpi-icon green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Beneficio Neto Estimado</span>
+            <span class="kpi-value green-text" id="kpiTotalProfit">+0,00 €</span>
+            <span class="kpi-subtext" id="kpiAverageMargin">Margen medio: 0.0%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- BARRA DE HERRAMIENTAS: Búsqueda, Filtros y Vistas (Idéntico a la captura) -->
+      <section class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </span>
+          <input type="text" id="searchInput" placeholder="Buscar por nombre, categoría o notas..." autocomplete="off">
+          <button class="btn-clear" id="btnClearSearch" title="Borrar búsqueda" style="display:none;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="filters-group">
+          <select id="filterCategory" class="select-input">
+            <option value="ALL">Todas las categorías</option>
+          </select>
+
+          <select id="filterStatus" class="select-input">
+            <option value="ALL">Todos los estados</option>
+            <option value="EN_ESTUDIO">En estudio</option>
+            <option value="COMPRADO">Comprado / En camino</option>
+            <option value="EN_VENTA">En venta (Stock)</option>
+            <option value="VENDIDO">Vendido</option>
+            <option value="DESCARTADO">Descartado</option>
+          </select>
+
+          <select id="sortBy" class="select-input">
+            <option value="date_desc">Fecha (Más recientes)</option>
+            <option value="margin_desc">Mayor margen (%)</option>
+            <option value="profit_desc">Mayor beneficio (€)</option>
+            <option value="cost_asc">Menor coste (€)</option>
+            <option value="name_asc">Nombre (A-Z)</option>
+          </select>
+
+          <div class="view-toggle">
+            <button class="btn-view active" id="btnViewGrid" title="Vista en Cuadrícula">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+              <span>Cuadrícula</span>
+            </button>
+            <button class="btn-view" id="btnViewTable" title="Vista en Tabla">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/><line x1="8" x2="8" y1="3" y2="21"/></svg>
+              <span>Tabla</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA CUADRÍCULA DE ARTÍCULOS -->
+      <section id="articlesGrid" class="articles-grid">
+        <!-- Se inyecta dinámicamente con JS -->
+      </section>
+
+      <!-- VISTA TABLA DE ARTÍCULOS -->
+      <section id="articlesTableView" class="articles-table-container" style="display: none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Foto</th>
+              <th>Artículo</th>
+              <th>Categoría</th>
+              <th class="col-batch">Lote / Envío</th>
+              <th>Estado</th>
+              <th>Uds</th>
+              <th class="col-weight">Peso</th>
+              <th>Coste Real (€)</th>
+              <th>Inversión (€)</th>
+              <th class="col-platform-ebay">eBay (€)</th>
+              <th class="col-platform-wallapop">Wallapop (€)</th>
+              <th class="col-platform-vinted">Vinted (€)</th>
+              <th>Media (€)</th>
+              <th>P. Venta Unit.</th>
+              <th>Venta Total (€)</th>
+              <th>Beneficio Total</th>
+              <th>Margen (%)</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="articlesTableBody">
+            <!-- Se inyecta dinámicamente con JS -->
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ESTADO VACÍO EN DETALLE DE LOTE -->
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        </div>
+        <h3 id="emptyStateTitle">No hay artículos en este lote</h3>
+        <p id="emptyStateDesc">Puedes añadir artículos a este lote o asignarle productos existentes con el ratón.</p>
+        <div class="empty-actions">
+          <button class="btn btn-primary" id="btnEmptyAdd">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Añadir Artículo
+          </button>
+          <button class="btn btn-secondary" id="btnEmptyAssign">
+            📦 Asignar con Ratón
+          </button>
+        </div>
       </div>
     </div>
 
@@ -275,6 +411,20 @@
             <div class="form-group">
               <label for="inputName">Nombre del Artículo / Modelo <span class="required">*</span></label>
               <input type="text" id="inputName" required placeholder="Ej: Auriculares Bluetooth ANC TWS" autocomplete="off">
+            </div>
+
+            <!-- ENLACE DIRECTO A GOOFISH (闲鱼) / PROVEEDOR -->
+            <div class="form-group">
+              <label for="inputGoofishUrl" style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                  <span style="font-size: 1.05rem;">🐟</span> <strong>Enlace Goofish (闲鱼) / Proveedor</strong>
+                </span>
+                <a id="linkTestGoofish" href="#" target="_blank" rel="noopener noreferrer" style="display: none; font-size: 0.76rem; color: var(--brand); font-weight: 600; text-decoration: none;">Abrir en Goofish ↗</a>
+              </label>
+              <div class="input-prefix-container">
+                <span class="input-prefix" style="color: #d97706; font-size: 0.9rem;">🐟</span>
+                <input type="url" id="inputGoofishUrl" placeholder="https://m.goofish.com/item?id=... (enlace directo)" autocomplete="off">
+              </div>
             </div>
 
             <div class="form-row-inner">
@@ -316,9 +466,17 @@
                 </select>
               </div>
 
-              <div class="form-group" style="width: 120px;">
-                <label for="inputQuantity">Uds. Lote <span class="required">*</span></label>
+              <div class="form-group" style="width: 90px;">
+                <label for="inputQuantity">Uds. <span class="required">*</span></label>
                 <input type="number" id="inputQuantity" min="1" step="1" value="1" required title="Número de unidades iguales de este artículo">
+              </div>
+
+              <div class="form-group" style="width: 120px;">
+                <label for="inputWeight" title="Peso de cada unidad en gramos">Peso (g / ud)</label>
+                <div class="input-prefix-container">
+                  <span class="input-prefix" style="font-size: 0.75rem;">⚖️</span>
+                  <input type="number" id="inputWeight" min="0" step="1" placeholder="g" title="Peso unitario en gramos (ej: 350)">
+                </div>
               </div>
             </div>
 
@@ -547,23 +705,23 @@
               </div>
 
               <!-- Resultados de Rentabilidad en Tiempo Real -->
-              <div class="profit-calculator-grid profit-grid-4">
+              <div class="profit-calculator-grid profit-grid-3">
                 <div class="profit-badge" id="profitBadge">
                   <span class="profit-label">Beneficio Unitario</span>
                   <span class="profit-value" id="displayNetProfit">0,00 €</span>
                 </div>
 
                 <div class="profit-badge highlight-profit" id="batchProfitBadge">
-                  <span class="profit-label">Beneficio Total (<span id="displayQtyProfitLabel">1</span> uds)</span>
+                  <span class="profit-label">Ganancia Total (<span id="displayQtyProfitLabel">1</span> uds)</span>
                   <span class="profit-value" id="displayBatchProfit">0,00 €</span>
                 </div>
 
                 <div class="profit-badge" id="marginBadge">
-                  <span class="profit-label">Margen Venta</span>
-                  <span class="profit-value" id="displayMarginPercent">0.0%</span>
+                  <span class="profit-label">Margen s/ Coste</span>
+                  <span class="profit-value" id="displayMarginPercent">+0.0%</span>
                 </div>
 
-                <div class="profit-badge" id="roiBadge">
+                <div class="profit-badge" id="roiBadge" style="display: none;">
                   <span class="profit-label">Retorno (ROI)</span>
                   <span class="profit-value" id="displayROI">0.0%</span>
                 </div>
@@ -571,10 +729,6 @@
 
               <div class="batch-financial-summary" id="batchFinancialSummary">
                 <!-- Resumen financiero del lote en vivo -->
-              </div>
-
-              <div class="vs-market-note" id="vsMarketNote">
-                Introduce el precio final para comparar con la media de mercado.
               </div>
             </div>
 
@@ -803,10 +957,18 @@
 
         <div class="form-row-inner">
           <div class="form-group flex-1">
-            <label for="batchInputShippingCost">Coste de Envío TOTAL del Paquete (€) <span class="required">*</span></label>
+            <label for="batchInputShippingCost">Coste de Envío TOTAL (€) <span class="required">*</span></label>
             <div class="input-prefix-container">
               <span class="input-prefix">€</span>
               <input type="number" id="batchInputShippingCost" step="0.01" min="0" required placeholder="0.00" value="0.00">
+            </div>
+          </div>
+
+          <div class="form-group flex-1">
+            <label for="batchInputWeight">Peso Total Paquete (kg)</label>
+            <div class="input-prefix-container">
+              <span class="input-prefix">⚖️</span>
+              <input type="number" id="batchInputWeight" step="0.01" min="0" placeholder="Ej: 4.50" value="">
             </div>
           </div>
 
@@ -825,6 +987,7 @@
             <label for="batchInputDistribution">Método de Reparto del Envío</label>
             <select id="batchInputDistribution">
               <option value="PER_UNIT" selected>Por Unidades (mismo importe por ud)</option>
+              <option value="BY_WEIGHT">Proporcional al Peso (kg/g de cada artículo)</option>
               <option value="PROPORTIONAL_COST">Proporcional al Coste (€) del producto</option>
             </select>
           </div>
@@ -836,8 +999,21 @@
         </div>
 
         <div class="form-group">
-          <label for="batchInputNotes">Notas del Envío (Transportista, peso kg, agente...)</label>
-          <textarea id="batchInputNotes" rows="2" placeholder="Agente de compra, peso estimado, fecha prevista de llegada..."></textarea>
+          <label for="batchInputNotes">Notas del Envío (Transportista, agente, caja...)</label>
+          <textarea id="batchInputNotes" rows="2" placeholder="Agente de compra, peso volumétrico, fecha prevista de llegada..."></textarea>
+        </div>
+
+        <!-- Resumen de Artículos y acceso rápido al selector visual -->
+        <div id="batchEditArticlesSummaryBox" class="batch-articles-edit-box">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem;">
+            <div>
+              <strong style="font-size: 0.88rem; color: var(--text-main);">Artículos asignados a este Lote:</strong>
+              <div id="batchEditArticlesCountText" class="text-sm text-muted">0 artículos · 0 uds · ⚖️ 0.00 kg calculados</div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnOpenAssignFromBatchEdit" title="Seleccionar con el ratón qué productos van en este paquete">
+              📦 Seleccionar Productos con Ratón
+            </button>
+          </div>
         </div>
 
         <div class="modal-footer" style="padding-top: 1rem; padding-bottom: 0;">
@@ -848,6 +1024,75 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: ASIGNACIÓN VISUAL DE ARTÍCULOS A UN LOTE              -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay" id="batchAssignModal" style="display: none; z-index: 1200;">
+    <div class="modal modal-lg batch-assign-dialog">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.3rem;">📦</span>
+          <div>
+            <h2 id="batchAssignModalTitle" style="font-size: 1.15rem; margin: 0;">Seleccionar Artículos del Lote</h2>
+            <p id="batchAssignModalSubtitle" class="text-sm text-muted" style="margin: 0.15rem 0 0;">Haz clic en los productos para agregarlos o quitarlos de este paquete</p>
+          </div>
+        </div>
+        <button class="modal-close" id="btnCloseBatchAssignModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 0.75rem;">
+        <!-- Barra de herramientas del selector -->
+        <div class="assign-toolbar">
+          <div class="search-box" style="flex: 1; min-width: 200px;">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="batchAssignSearch" placeholder="Buscar por nombre o categoría..." autocomplete="off">
+          </div>
+          <div class="assign-quick-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAssignSelectUnassigned" title="Marcar todos los artículos que no tienen lote asignado">
+              + Añadir sin lote
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAssignSelectAll">
+              Marcar todos
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAssignDeselectAll">
+              Desmarcar todos
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de resumen en vivo -->
+        <div class="assign-summary-bar">
+          <div class="assign-summary-stats">
+            <span class="assign-stat-pill">
+              Seleccionados: <strong id="assignSelectedCount">0</strong> artículos (<strong id="assignSelectedUnits">0</strong> uds)
+            </span>
+            <span class="assign-stat-pill">
+              ⚖️ Peso suma: <strong id="assignSelectedWeight">0.00</strong> kg
+            </span>
+          </div>
+          <div id="assignBatchShippingProrate" class="text-sm" style="color: var(--brand); font-weight: 600;">
+            <!-- Envío estimado -->
+          </div>
+        </div>
+
+        <!-- Cuadrícula de artículos seleccionables con el ratón -->
+        <div id="batchAssignItemsList" class="batch-assign-grid">
+          <!-- Renderizado dinámicamente con JS -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btnCancelBatchAssign">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnSaveBatchAssign">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Guardar Selección (<span id="btnSaveAssignCount">0</span> artículos)
+        </button>
+      </div>
     </div>
   </div>
 

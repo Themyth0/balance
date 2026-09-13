@@ -9,6 +9,9 @@
 const AppState = {
   articles: [],
   batches: [],
+  activeBatchId: null, // null = Pantalla de Lotes (Home), string ID = Lote activo, 'NONE' = Artículos sin lote
+  batchSearchTerm: '',
+  batchStatusFilter: 'ALL',
   exchangeRate: 7.80, // 1 EUR = 7.80 RMB por defecto
   rateLastUpdated: 'Predeterminado',
   currentTheme: 'light',
@@ -21,7 +24,10 @@ const AppState = {
   editingArticleId: null,
   editingBatchId: null,
   currentPhoto: null, // { type: 'file'|'url', data: string, name: string }
-  marketPrices: [] // Array de { id, source, price }
+  marketPrices: [], // Array de { id, source, price }
+  assignBatchId: null,
+  assignSelectedArticleIds: new Set(),
+  assignSearchTerm: ''
 };
 
 // ============================================================
@@ -189,11 +195,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       await loadDemoData();
     } else {
       AppState.articles = articles;
-      renderArticles();
     }
 
     setupEventListeners();
     setupQuickCalc();
+
+    // Iniciar siempre en la pantalla principal de Lotes
+    navigateToBatches();
   } catch (error) {
     console.error('Error al inicializar la aplicación:', error);
     showToast('Error al inicializar la base de datos local', 'error');
@@ -339,8 +347,12 @@ function renderArticles() {
     filtered = filtered.filter(a => a.status === AppState.filterStatus);
   }
 
-  // Filtro Lote
-  if (AppState.filterBatch !== 'ALL') {
+  // Filtro por lote activo o filtro manual
+  if (AppState.activeBatchId === 'NONE') {
+    filtered = filtered.filter(a => !a.batchId);
+  } else if (AppState.activeBatchId) {
+    filtered = filtered.filter(a => a.batchId === AppState.activeBatchId);
+  } else if (AppState.filterBatch !== 'ALL') {
     if (AppState.filterBatch === 'NONE') {
       filtered = filtered.filter(a => !a.batchId);
     } else {
@@ -411,13 +423,10 @@ function renderGridView(articles, container) {
       ? `<img src="${photoSrc}" alt="${escapeHtml(article.name)}" class="card-img" onclick="openLightbox('${photoSrc}', '${escapeHtml(article.name)}')">`
       : `<div class="card-img-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>`;
 
-    // Comparación vs media
-    let marketCompHtml = '';
-    if (article.marketAverage > 0) {
-      const diff = article.finalPrice - article.marketAverage;
-      const diffText = diff >= 0 ? `+${diff.toFixed(2)}€ vs media` : `${diff.toFixed(2)}€ vs media`;
-      marketCompHtml = `<span class="pill-tag">${diffText}</span>`;
-    }
+    // Margen de beneficio frente al coste
+    const unitCost = article.totalCostEUR || article.costEUR || 0;
+    const marginCostPercent = unitCost > 0 ? ((article.netProfit || 0) / unitCost) * 100 : 0;
+    const isLowMargin = marginCostPercent < 20;
 
     // Batch badge
     const batchObj = article.batchId ? AppState.batches.find(b => b.id === article.batchId) : null;
@@ -428,19 +437,55 @@ function renderGridView(articles, container) {
 <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> ${escapeHtml(batchObj.name)}</span>`
       : '';
 
+    // Alertas de Stock y Tiempo
+    const now = Date.now();
+    const createdTimestamp = article.createdAt || now;
+    const daysInStock = Math.floor((now - createdTimestamp) / (1000 * 60 * 60 * 24));
+    const isStaleStock = article.status === 'EN_VENTA' && daysInStock >= 30;
+    const staleBadgeHtml = isStaleStock
+      ? `<span class="card-badge-stale" title="Lleva ${daysInStock} días en venta. Considera ajustar el precio o promocionarlo.">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          ${daysInStock}d en stock
+        </span>`
+      : '';
+
+    // Semáforo de Margen
+    let marginStatusClass = 'margin-optimal';
+    let marginWarningBadgeHtml = '';
+    if (isLowMargin) {
+      marginStatusClass = 'margin-warning';
+      marginWarningBadgeHtml = `
+        <span class="pill-tag pill-tag-warning" title="Margen bajo (< 20% frente al coste). Revisa tus costes o ajusta el precio final.">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+          Margen Bajo
+        </span>`;
+    }
+
+    const goofishBadgeHtml = article.goofishUrl
+      ? `<a href="${escapeHtml(article.goofishUrl)}" target="_blank" rel="noopener noreferrer" class="goofish-btn-badge" onclick="event.stopPropagation();" title="Abrir en Goofish / Proveedor">🐟 Goofish ↗</a>`
+      : '';
+
+    const weightText = (article.weight && article.weight > 0)
+      ? ` · ⚖️${article.weight >= 1000 ? (article.weight / 1000).toFixed(1) + 'kg' : article.weight + 'g'}`
+      : '';
+
     return `
-      <article class="article-card" data-id="${article.id}">
+      <article class="article-card ${isStaleStock ? 'card-stale-alert' : ''} ${isLowMargin ? 'card-low-margin' : ''}" data-id="${article.id}">
         <div class="card-media">
           ${imageHtml}
           <span class="card-badge-status status-${article.status}">
             ${statusLabels[article.status] || article.status}
           </span>
-          <span class="card-badge-qty">${qty} uds</span>
+          <span class="card-badge-qty">${qty} uds${weightText}</span>
           ${article.category ? `<span class="card-badge-category">${escapeHtml(article.category)}</span>` : ''}
+          ${staleBadgeHtml}
         </div>
 
         <div class="card-content">
-          <h3 class="card-title" title="${escapeHtml(article.name)}">${escapeHtml(article.name)}</h3>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
+            <h3 class="card-title" style="margin: 0;" title="${escapeHtml(article.name)}">${escapeHtml(article.name)}</h3>
+            ${goofishBadgeHtml}
+          </div>
 
           <div class="card-pricing-table">
             <div class="pricing-row">
@@ -481,12 +526,13 @@ function renderGridView(articles, container) {
           <div class="card-profit-box ${profitClass}">
             <div class="profit-primary">
               <span class="profit-val">${batchProfit >= 0 ? '+' : ''}${batchProfit.toFixed(2)} €</span>
-              <span class="profit-lbl">Ganancia Lote (${batchProfit >= 0 ? '+' : ''}${article.netProfit.toFixed(2)} €/ud)</span>
+              <span class="profit-lbl">Ganancia Total ${qty > 1 ? `(${article.netProfit >= 0 ? '+' : ''}${article.netProfit.toFixed(2)} €/ud)` : ''}</span>
             </div>
             <div class="profit-badges-group">
-              <span class="pill-tag">Margen: ${article.marginPercent.toFixed(1)}%</span>
-              <span class="pill-tag">ROI: ${article.roi.toFixed(1)}%</span>
-              ${marketCompHtml}
+              <span class="pill-tag ${isLowMargin ? 'pill-tag-margin-low' : ''}" title="Beneficio neto obtenido frente al coste real unitario">
+                Margen: ${marginCostPercent >= 0 ? '+' : ''}${marginCostPercent.toFixed(1)}% frente al coste
+              </span>
+              ${marginWarningBadgeHtml}
             </div>
           </div>
         </div>
@@ -536,19 +582,27 @@ function renderTableView(articles, tbody) {
     const batchProfit = (article.netProfit || 0) * qty;
 
     const profitColor = batchProfit >= 0 ? 'var(--success)' : 'var(--danger)';
-    const tableBatchObj = article.batchId ? AppState.batches.find(b => b.id === article.batchId) : null;
+    const isTableStale = article.status === 'EN_VENTA' && (Date.now() - (article.createdAt || Date.now())) >= (30 * 24 * 60 * 60 * 1000);
+    const tableDaysInStock = Math.floor((Date.now() - (article.createdAt || Date.now())) / (1000 * 60 * 60 * 24));
+    const tableUnitCost = article.totalCostEUR || article.costEUR || 0;
+    const tableMarginCost = tableUnitCost > 0 ? ((article.netProfit || 0) / tableUnitCost) * 100 : 0;
 
     return `
-      <tr>
+      <tr class="${isTableStale ? 'row-stale-alert' : ''} ${tableMarginCost < 20 ? 'row-low-margin' : ''}">
         <td>${imgHtml}</td>
         <td>
-          <div class="table-item-name">${escapeHtml(article.name)}</div>
+          <div class="table-item-name">
+            ${escapeHtml(article.name)}
+            ${isTableStale ? `<span class="table-stale-tag" title="Lleva ${tableDaysInStock} días en venta">${tableDaysInStock}d stock</span>` : ''}
+            ${article.goofishUrl ? `<a href="${escapeHtml(article.goofishUrl)}" target="_blank" rel="noopener noreferrer" class="table-goofish-link" title="Abrir en Goofish">🐟 Goofish ↗</a>` : ''}
+          </div>
           ${article.notes ? `<small class="text-muted">${escapeHtml(article.notes.substring(0, 45))}${article.notes.length > 45 ? '...' : ''}</small>` : ''}
         </td>
         <td><span class="pill-tag">${escapeHtml(article.category || 'General')}</span></td>
         <td class="col-batch">${tableBatchObj ? `<span class="batch-badge">${escapeHtml(tableBatchObj.name)}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
         <td><span class="card-badge-status status-${article.status}">${statusLabels[article.status] || article.status}</span></td>
         <td><span class="pill-tag" style="font-weight: 700; font-size: 0.82rem;">${qty} uds</span></td>
+        <td class="col-weight" style="font-size: 0.80rem; color: var(--text-secondary);">${article.weight > 0 ? (article.weight >= 1000 ? (article.weight / 1000).toFixed(2) + ' kg' : article.weight + ' g') : '<span style="color:var(--text-dim)">—</span>'}</td>
         <td>${article.totalCostEUR.toFixed(2)} €</td>
         <td><strong style="color: var(--warning-text);">${batchCost.toFixed(2)} €</strong></td>
         <td class="col-platform-ebay">${article.priceEbay > 0 ? `<span class="platform-chip ebay">eBay ${article.priceEbay.toFixed(2)}€</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
@@ -562,7 +616,7 @@ function renderTableView(articles, tbody) {
           <br><small class="text-muted">(${article.netProfit >= 0 ? '+' : ''}${article.netProfit.toFixed(2)} €/ud)</small>
         </td>
         <td>
-          <span class="pill-tag" style="font-weight: 700;">${article.marginPercent.toFixed(1)}%</span>
+          <span class="pill-tag ${tableMarginCost < 20 ? 'pill-tag-margin-low' : ''}" style="font-weight: 700;" title="Margen de beneficio frente al coste: ${tableMarginCost >= 0 ? '+' : ''}${tableMarginCost.toFixed(1)}%">${tableMarginCost >= 0 ? '+' : ''}${tableMarginCost.toFixed(1)}%</span>
         </td>
         <td>
           <div class="table-actions">
@@ -580,7 +634,13 @@ function renderTableView(articles, tbody) {
 }
 
 function updateGlobalKPIs() {
-  const articles = AppState.articles;
+  let articles = AppState.articles;
+  if (AppState.activeBatchId === 'NONE') {
+    articles = articles.filter(a => !a.batchId);
+  } else if (AppState.activeBatchId) {
+    articles = articles.filter(a => a.batchId === AppState.activeBatchId);
+  }
+
   const count = articles.length;
 
   let totalUnits = 0;
@@ -601,26 +661,43 @@ function updateGlobalKPIs() {
   const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
   const avgPrice = totalUnits > 0 ? totalRevenue / totalUnits : 0;
 
-  document.getElementById('kpiTotalArticles').textContent = `${count} artículos (${totalUnits} uds)`;
-  document.getElementById('kpiTotalCost').textContent = formatCurrency(totalCostEUR);
-  document.getElementById('kpiTotalCostRMB').textContent = `¥ ${totalCostRMB.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RMB`;
-  document.getElementById('kpiTotalRevenue').textContent = formatCurrency(totalRevenue);
-  document.getElementById('kpiAveragePrice').textContent = `Media: ${formatCurrency(avgPrice)}/ud`;
+  const kpiTotal = document.getElementById('kpiTotalArticles');
+  if (kpiTotal) kpiTotal.textContent = `${count} artículos (${totalUnits} uds)`;
+
+  const kpiCost = document.getElementById('kpiTotalCost');
+  if (kpiCost) kpiCost.textContent = formatCurrency(totalCostEUR);
+
+  const kpiRMB = document.getElementById('kpiTotalCostRMB');
+  if (kpiRMB) kpiRMB.textContent = `¥ ${totalCostRMB.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RMB`;
+
+  const kpiRev = document.getElementById('kpiTotalRevenue');
+  if (kpiRev) kpiRev.textContent = formatCurrency(totalRevenue);
+
+  const kpiAvg = document.getElementById('kpiAveragePrice');
+  if (kpiAvg) kpiAvg.textContent = `Media: ${formatCurrency(avgPrice)}/ud`;
   
   const profitEl = document.getElementById('kpiTotalProfit');
-  profitEl.textContent = (totalProfit >= 0 ? '+' : '') + formatCurrency(totalProfit);
-  profitEl.className = totalProfit >= 0 ? 'kpi-value green-text' : 'kpi-value text-danger';
+  if (profitEl) {
+    profitEl.textContent = (totalProfit >= 0 ? '+' : '') + formatCurrency(totalProfit);
+    profitEl.className = totalProfit >= 0 ? 'kpi-value green-text' : 'kpi-value text-danger';
+  }
 
-  document.getElementById('kpiAverageMargin').textContent = `Margen medio: ${avgMargin.toFixed(1)}%`;
+  const kpiMargin = document.getElementById('kpiAverageMargin');
+  if (kpiMargin) kpiMargin.textContent = `Margen medio: ${avgMargin.toFixed(1)}%`;
 }
 
 function updateCategoryDropdown() {
   const select = document.getElementById('filterCategory');
+  if (!select) return;
   const datalist = document.getElementById('categoriesList');
   const currentVal = select.value;
 
   const categories = new Set();
-  AppState.articles.forEach(a => {
+  const pool = AppState.activeBatchId
+    ? (AppState.activeBatchId === 'NONE' ? AppState.articles.filter(a => !a.batchId) : AppState.articles.filter(a => a.batchId === AppState.activeBatchId))
+    : AppState.articles;
+
+  pool.forEach(a => {
     if (a.category && a.category.trim()) categories.add(a.category.trim());
   });
 
@@ -630,7 +707,12 @@ function updateCategoryDropdown() {
     html += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
   });
   select.innerHTML = html;
-  select.value = currentVal;
+  if (Array.from(select.options).some(o => o.value === currentVal)) {
+    select.value = currentVal;
+  } else {
+    select.value = 'ALL';
+    AppState.filterCategory = 'ALL';
+  }
 
   // Reconstruir datalist del modal
   let datalistHtml = '';
@@ -699,9 +781,10 @@ function openArticleModal(article = null) {
     document.getElementById('inputStatus').value = 'EN_VENTA';
     document.getElementById('inputQuantity').value = 1;
 
-    // Lote: ninguno por defecto
-    document.getElementById('inputBatchId').value = '';
-    updateBatchShippingNote('');
+    // Lote: si estamos dentro de un lote activo, asignarlo por defecto
+    const defaultBatch = (AppState.activeBatchId && AppState.activeBatchId !== 'NONE') ? AppState.activeBatchId : '';
+    document.getElementById('inputBatchId').value = defaultBatch;
+    updateBatchShippingNote(defaultBatch);
 
     // Limpiar campos de plataformas
     document.getElementById('inputPriceEbay').value = '';
@@ -712,6 +795,20 @@ function openArticleModal(article = null) {
     AppState.marketPrices = [];
   }
 
+  // Cargar Goofish URL y Peso
+  const goofishInput = document.getElementById('inputGoofishUrl');
+  const weightInput = document.getElementById('inputWeight');
+  const linkTestGoofish = document.getElementById('linkTestGoofish');
+  if (goofishInput) goofishInput.value = article ? (article.goofishUrl || '') : '';
+  if (weightInput) weightInput.value = (article && article.weight) ? article.weight : '';
+  if (linkTestGoofish) {
+    if (article && article.goofishUrl) {
+      linkTestGoofish.href = article.goofishUrl;
+      linkTestGoofish.style.display = 'inline';
+    } else {
+      linkTestGoofish.style.display = 'none';
+    }
+  }
 
   renderMarketPriceRows();
   recalculateModalForm();
@@ -783,8 +880,8 @@ function recalculateModalForm() {
   const netProfit = finalPrice - totalCostEUR;
   const batchProfit = netProfit * quantity;
   const batchRevenue = finalPrice * quantity;
-  const marginPercent = finalPrice > 0 ? (netProfit / finalPrice) * 100 : 0;
-  const roi = totalCostEUR > 0 ? (netProfit / totalCostEUR) * 100 : 0;
+  const marginCostPercent = totalCostEUR > 0 ? (netProfit / totalCostEUR) * 100 : 0;
+  const roi = marginCostPercent;
 
   const profitBadge = document.getElementById('profitBadge');
   const batchProfitBadge = document.getElementById('batchProfitBadge');
@@ -795,8 +892,8 @@ function recalculateModalForm() {
 
   netProfitEl.textContent = (netProfit >= 0 ? '+' : '') + netProfit.toFixed(2) + ' €';
   batchProfitEl.textContent = (batchProfit >= 0 ? '+' : '') + batchProfit.toFixed(2) + ' €';
-  marginEl.textContent = marginPercent.toFixed(1) + '%';
-  roiEl.textContent = roi.toFixed(1) + '%';
+  marginEl.textContent = (marginCostPercent >= 0 ? '+' : '') + marginCostPercent.toFixed(1) + '%';
+  if (roiEl) roiEl.textContent = roi.toFixed(1) + '%';
 
   // Coloreado visual de rentabilidad
   if (finalPrice > 0) {
@@ -824,21 +921,23 @@ function recalculateModalForm() {
 
   // Comparativa vs Media
   const noteEl = document.getElementById('vsMarketNote');
-  if (finalPrice > 0 && marketAvg > 0) {
-    const diff = finalPrice - marketAvg;
-    if (Math.abs(diff) < 0.05) {
-      noteEl.innerHTML = '<span class="status-dot dot-bought"></span> Tu precio es exactamente igual a la media de mercado.';
-      noteEl.style.color = 'var(--brand)';
-    } else if (diff < 0) {
-      noteEl.innerHTML = `<span class="status-dot dot-selling"></span> <strong>Precio competitivo</strong>: estás ${Math.abs(diff).toFixed(2)} € por debajo de la media (${marketAvg.toFixed(2)} €).`;
-      noteEl.style.color = 'var(--emerald-text)';
+  if (noteEl) {
+    if (finalPrice > 0 && marketAvg > 0) {
+      const diff = finalPrice - marketAvg;
+      if (Math.abs(diff) < 0.05) {
+        noteEl.innerHTML = '<span class="status-dot dot-bought"></span> Tu precio es exactamente igual a la media de mercado.';
+        noteEl.style.color = 'var(--brand)';
+      } else if (diff < 0) {
+        noteEl.innerHTML = `<span class="status-dot dot-selling"></span> <strong>Precio competitivo</strong>: estás ${Math.abs(diff).toFixed(2)} € por debajo de la media (${marketAvg.toFixed(2)} €).`;
+        noteEl.style.color = 'var(--emerald-text)';
+      } else {
+        noteEl.innerHTML = `<span class="status-dot dot-study"></span> Estás ${diff.toFixed(2)} € por encima de la media de mercado (${marketAvg.toFixed(2)} €).`;
+        noteEl.style.color = 'var(--amber-text)';
+      }
     } else {
-      noteEl.innerHTML = `<span class="status-dot dot-study"></span> Estás ${diff.toFixed(2)} € por encima de la media de mercado (${marketAvg.toFixed(2)} €).`;
-      noteEl.style.color = 'var(--amber-text)';
+      noteEl.textContent = 'Introduce el precio final para comparar con la media de mercado.';
+      noteEl.style.color = 'var(--text-muted)';
     }
-  } else {
-    noteEl.textContent = 'Introduce el precio final para comparar con la media de mercado.';
-    noteEl.style.color = 'var(--text-muted)';
   }
 }
 
@@ -1007,6 +1106,9 @@ async function saveArticleHandler(e) {
   const marginPercent = finalPrice > 0 ? (netProfit / finalPrice) * 100 : 0;
   const roi = totalCostEUR > 0 ? (netProfit / totalCostEUR) * 100 : 0;
 
+  const goofishUrl = (document.getElementById('inputGoofishUrl')?.value || '').trim();
+  const weight = Math.max(0, parseFloat(document.getElementById('inputWeight')?.value) || 0);
+
   // Lote asignado
   const selectedBatchId = document.getElementById('inputBatchId').value || null;
   // Guardar batchId previo para recalcular el lote antiguo si cambió
@@ -1020,6 +1122,8 @@ async function saveArticleHandler(e) {
     status: document.getElementById('inputStatus').value,
     quantity,
     notes: document.getElementById('inputNotes').value.trim(),
+    goofishUrl,
+    weight,
     batchId: selectedBatchId,
     costRMB,
     costEUR,
@@ -1072,10 +1176,11 @@ async function saveArticleHandler(e) {
 
     closeArticleModal();
     renderArticles();
+    updateMainBatchesKPIs();
+    renderMainBatches();
   } catch (error) {
     console.error('Error al guardar artículo:', error);
     showToast('Error al guardar el artículo en la base de datos', 'error');
-
   }
 }
 
@@ -1101,7 +1206,12 @@ async function duplicateArticle(id) {
   try {
     await dbSaveArticle(duplicated);
     AppState.articles.unshift(duplicated);
+    if (duplicated.batchId) {
+      await recalculateBatchArticles(duplicated.batchId);
+    }
     renderArticles();
+    updateMainBatchesKPIs();
+    renderMainBatches();
     showToast('Artículo duplicado con éxito', 'success');
   } catch (e) {
     showToast('Error al duplicar el artículo', 'error');
@@ -1116,7 +1226,12 @@ async function confirmDeleteArticle(id) {
     try {
       await dbDeleteArticle(id);
       AppState.articles = AppState.articles.filter(a => a.id !== id);
+      if (article && article.batchId) {
+        await recalculateBatchArticles(article.batchId);
+      }
       renderArticles();
+      updateMainBatchesKPIs();
+      renderMainBatches();
       showToast('Artículo eliminado', 'info');
     } catch (e) {
       showToast('Error al eliminar el artículo', 'error');
@@ -1346,16 +1461,30 @@ function handleRestoreBackup(file) {
 // 12. DATOS DE EJEMPLO INICIALES
 // ============================================================
 async function loadDemoData() {
-  // Lote de demostración
-  const demoBatch = {
+  // Lotes de demostración
+  const demoBatch1 = {
     id: 'demo-batch-1',
-    name: 'Lote Septiembre #1 — Tecnología',
+    name: 'Lote Septiembre #1 — Auriculares & Soportes',
     totalShippingCost: 32.00,
+    totalWeight: 5.2,
     distributionMethod: 'PER_UNIT',
     status: 'RECIBIDO',
     tracking: 'ES9999999999CN',
-    notes: 'Caja 5.2kg via agente. Entregada el 03/09.',
+    notes: 'Caja 5.2kg vía agente de carga. Entregada el 03/09.',
     createdAt: Date.now() - 3600000 * 24 * 5,
+    updatedAt: Date.now()
+  };
+
+  const demoBatch2 = {
+    id: 'demo-batch-2',
+    name: 'Lote Septiembre #2 — Hubs & Conectividad',
+    totalShippingCost: 18.50,
+    totalWeight: 2.8,
+    distributionMethod: 'PER_UNIT',
+    status: 'EN_CAMINO',
+    tracking: 'YT249018239CN',
+    notes: 'Paquete de 2.8kg vía YunExpress en tránsito aéreo.',
+    createdAt: Date.now() - 3600000 * 24 * 2,
     updatedAt: Date.now()
   };
 
@@ -1366,6 +1495,8 @@ async function loadDemoData() {
       category: 'Electrónica',
       status: 'EN_VENTA',
       quantity: 12,
+      weight: 220,
+      goofishUrl: 'https://m.goofish.com/item?id=7821948218',
       batchId: 'demo-batch-1',
       notes: 'Batería 30h, cancelación activa de ruido, conector USB-C. Proveedor Shenzhen Tech.',
       costRMB: 62.50,
@@ -1391,7 +1522,7 @@ async function loadDemoData() {
         name: 'auriculares.jpg',
         data: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80'
       },
-      createdAt: Date.now() - 3600000 * 24 * 3,
+      createdAt: Date.now() - 3600000 * 24 * 38, // 38 días en venta (alerta de stock estancado)
       updatedAt: Date.now()
     },
     {
@@ -1400,6 +1531,8 @@ async function loadDemoData() {
       category: 'Informática',
       status: 'COMPRADO',
       quantity: 6,
+      weight: 380,
+      goofishUrl: 'https://m.goofish.com/item?id=8192039102',
       batchId: 'demo-batch-1',
       notes: 'Aluminio anodizado, 6 posiciones de altura, funda de terciopelo incluida.',
       costRMB: 31.20,
@@ -1434,6 +1567,8 @@ async function loadDemoData() {
       category: 'Hogar y Cocina',
       status: 'EN_ESTUDIO',
       quantity: 20,
+      weight: 140,
+      goofishUrl: '',
       notes: 'Pantalla retroiluminada azul, función tara, incluye pilas AAA.',
       costRMB: 15.60,
       costEUR: 2.00,
@@ -1460,11 +1595,48 @@ async function loadDemoData() {
       },
       createdAt: Date.now() - 3600000 * 24 * 1,
       updatedAt: Date.now()
+    },
+    {
+      id: 'demo-4',
+      name: 'Hub Adaptador USB-C 7 en 1 HDMI 4K',
+      category: 'Informática',
+      status: 'EN_VENTA',
+      quantity: 5,
+      weight: 95,
+      goofishUrl: 'https://m.goofish.com/item?id=7501928419',
+      batchId: 'demo-batch-2',
+      notes: 'Salida HDMI 4K, 3 puertos USB 3.0, lector SD/TF y PD 100W.',
+      costRMB: 140.40,
+      costEUR: 18.00,
+      shippingCost: 3.70,
+      customsPercent: 0,
+      feePercent: 8.0, // Comisión venta
+      totalCostEUR: 23.82,
+      priceEbay: 28.90,
+      priceWallapop: 26.00,
+      priceVinted: 25.00,
+      marketPrices: [],
+      marketAverage: 26.63,
+      marketMin: 25.00,
+      marketMax: 28.90,
+      finalPrice: 26.50,
+      netProfit: 2.68,
+      marginPercent: 10.1, // Margen bajo (< 20%) -> activa semáforo ámbar
+      roi: 11.3,
+      rateApplied: 7.80,
+      photo: {
+        type: 'url',
+        name: 'hub.jpg',
+        data: 'https://images.unsplash.com/photo-1544652478-6653e09f18a2?w=600&auto=format&fit=crop&q=80'
+      },
+      createdAt: Date.now() - 3600000 * 24 * 8,
+      updatedAt: Date.now()
     }
   ];
 
-  await dbSaveBatch(demoBatch);
-  AppState.batches = [demoBatch];
+  await dbSaveBatch(demoBatch1);
+  await dbSaveBatch(demoBatch2);
+  AppState.batches = [demoBatch1, demoBatch2];
   populateBatchSelects();
 
   for (const item of demoItems) {
@@ -1472,8 +1644,12 @@ async function loadDemoData() {
   }
 
   AppState.articles = demoItems;
-  renderArticles();
-  showToast('Se han cargado 3 artículos y 1 lote de ejemplo', 'info');
+  await recalculateBatchArticles('demo-batch-1');
+  await recalculateBatchArticles('demo-batch-2');
+
+  updateMainBatchesKPIs();
+  renderMainBatches();
+  showToast('Se han cargado 4 artículos y 2 lotes de ejemplo', 'info');
 }
 
 
@@ -1539,7 +1715,8 @@ function updateBatchShippingNote(batchId) {
 
 /**
  * Recalcula el coste de envío unitario de todos los artículos de un lote
- * distribuyendo batch.totalShippingCost entre la suma de unidades del lote.
+ * distribuyendo batch.totalShippingCost entre la suma de unidades del lote,
+ * proporcionalmente al coste o proporcionalmente al peso de cada artículo.
  */
 async function recalculateBatchArticles(batchId) {
   if (!batchId) return;
@@ -1552,13 +1729,20 @@ async function recalculateBatchArticles(batchId) {
 
   const totalUnits = batchArticles.reduce((sum, a) => sum + (a.quantity || 1), 0);
   const totalCostForProportion = batchArticles.reduce((sum, a) => sum + (a.costEUR || 0) * (a.quantity || 1), 0);
+  const totalWeightG = batchArticles.reduce((sum, a) => sum + ((a.weight || 0) * (a.quantity || 1)), 0);
 
   for (const article of batchArticles) {
     let unitShipping;
-    if (batch.distributionMethod === 'PROPORTIONAL_COST' && totalCostForProportion > 0) {
-      const proportion = ((article.costEUR || 0) * (article.quantity || 1)) / totalCostForProportion;
+    const qty = article.quantity || 1;
+
+    if (batch.distributionMethod === 'BY_WEIGHT' && totalWeightG > 0) {
+      const articleTotalWeight = (article.weight || 0) * qty;
+      const proportion = articleTotalWeight / totalWeightG;
+      unitShipping = (batch.totalShippingCost * proportion) / qty;
+    } else if (batch.distributionMethod === 'PROPORTIONAL_COST' && totalCostForProportion > 0) {
+      const proportion = ((article.costEUR || 0) * qty) / totalCostForProportion;
       const articleShippingTotal = batch.totalShippingCost * proportion;
-      unitShipping = articleShippingTotal / (article.quantity || 1);
+      unitShipping = articleShippingTotal / qty;
     } else {
       // PER_UNIT (default)
       unitShipping = batch.totalShippingCost / (totalUnits || 1);
@@ -1571,7 +1755,6 @@ async function recalculateBatchArticles(batchId) {
     const netProfit = (article.finalPrice || 0) - totalCostEUR;
     const marginPercent = article.finalPrice > 0 ? (netProfit / article.finalPrice) * 100 : 0;
     const roi = totalCostEUR > 0 ? (netProfit / totalCostEUR) * 100 : 0;
-    const qty = article.quantity || 1;
 
     const updated = {
       ...article,
@@ -1623,6 +1806,7 @@ function renderBatchesList() {
     const totalUnits = articles.reduce((s, a) => s + (a.quantity || 1), 0);
     const totalCost = articles.reduce((s, a) => s + (a.totalCostEUR || 0) * (a.quantity || 1), 0);
     const totalProfit = articles.reduce((s, a) => s + (a.netProfit || 0) * (a.quantity || 1), 0);
+    const totalWeightKg = articles.reduce((s, a) => s + ((a.weight || 0) * (a.quantity || 1)), 0) / 1000;
     const profitColor = totalProfit >= 0 ? 'var(--success-text)' : 'var(--danger-text)';
 
     return `
@@ -1638,7 +1822,10 @@ function renderBatchesList() {
               ${batch.tracking ? ` · <span style="font-family: monospace;">${escapeHtml(batch.tracking)}</span>` : ''}
             </div>
           </div>
-          <div style="display: flex; gap: 0.4rem; flex-shrink: 0;">
+          <div style="display: flex; gap: 0.4rem; flex-shrink: 0; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm" onclick="openBatchAssignModal('${batch.id}')" title="Seleccionar con el ratón qué productos van en este paquete">
+              📦 Asignar Artículos
+            </button>
             <button class="btn btn-secondary btn-sm" onclick="openBatchEditModal('${batch.id}')" title="Editar lote">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
               Editar
@@ -1654,8 +1841,8 @@ function renderBatchesList() {
             <strong class="batch-metric-val">${(batch.totalShippingCost || 0).toFixed(2)} €</strong>
           </div>
           <div class="batch-metric-item">
-            <span class="batch-metric-lbl">Por unidad</span>
-            <strong class="batch-metric-val">${totalUnits > 0 ? (batch.totalShippingCost / totalUnits).toFixed(2) : '0.00'} €/ud</strong>
+            <span class="batch-metric-lbl">Peso artículos</span>
+            <strong class="batch-metric-val">⚖️ ${totalWeightKg > 0 ? totalWeightKg.toFixed(2) + ' kg' : '0.00 kg'}${batch.totalWeight ? ` <small class="text-muted">(${batch.totalWeight.toFixed(2)}kg)</small>` : ''}</strong>
           </div>
           <div class="batch-metric-item">
             <span class="batch-metric-lbl">Inversión total</span>
@@ -1682,6 +1869,8 @@ function openBatchEditModal(batchId = null) {
   const form = document.getElementById('batchForm');
   form.reset();
 
+  const articlesCountText = document.getElementById('batchEditArticlesCountText');
+
   if (batchId) {
     const batch = AppState.batches.find(b => b.id === batchId);
     if (batch) {
@@ -1689,14 +1878,26 @@ function openBatchEditModal(batchId = null) {
       document.getElementById('batchEditId').value = batch.id;
       document.getElementById('batchInputName').value = batch.name;
       document.getElementById('batchInputShippingCost').value = batch.totalShippingCost || 0;
+      document.getElementById('batchInputWeight').value = batch.totalWeight || '';
       document.getElementById('batchInputStatus').value = batch.status || 'EN_CAMINO';
       document.getElementById('batchInputDistribution').value = batch.distributionMethod || 'PER_UNIT';
       document.getElementById('batchInputTracking').value = batch.tracking || '';
       document.getElementById('batchInputNotes').value = batch.notes || '';
+
+      const bArticles = AppState.articles.filter(a => a.batchId === batchId);
+      const bUnits = bArticles.reduce((s, a) => s + (a.quantity || 1), 0);
+      const bWeightKg = bArticles.reduce((s, a) => s + ((a.weight || 0) * (a.quantity || 1)), 0) / 1000;
+      if (articlesCountText) {
+        articlesCountText.textContent = `${bArticles.length} artículos · ${bUnits} uds · ⚖️ ${bWeightKg.toFixed(2)} kg calculados`;
+      }
     }
   } else {
     titleEl.textContent = 'Nuevo Lote de Envío';
     document.getElementById('batchEditId').value = '';
+    document.getElementById('batchInputWeight').value = '';
+    if (articlesCountText) {
+      articlesCountText.textContent = 'Guarda el lote para empezar a asignarle productos con el ratón';
+    }
   }
 
   modal.style.display = 'flex';
@@ -1716,10 +1917,13 @@ async function saveBatchHandler(e) {
   }
 
   const totalShippingCost = parseFloat(document.getElementById('batchInputShippingCost').value) || 0;
+  const totalWeight = parseFloat(document.getElementById('batchInputWeight').value) || 0;
+
   const batchData = {
     id: AppState.editingBatchId || Date.now().toString(),
     name,
     totalShippingCost,
+    totalWeight,
     distributionMethod: document.getElementById('batchInputDistribution').value,
     status: document.getElementById('batchInputStatus').value,
     tracking: document.getElementById('batchInputTracking').value.trim(),
@@ -1744,6 +1948,8 @@ async function saveBatchHandler(e) {
     await recalculateBatchArticles(batchData.id);
     renderArticles();
     renderBatchesList();
+    updateMainBatchesKPIs();
+    renderMainBatches();
 
     document.getElementById('batchEditModal').style.display = 'none';
     AppState.editingBatchId = null;
@@ -1752,6 +1958,191 @@ async function saveBatchHandler(e) {
   } catch (error) {
     console.error('Error al guardar lote:', error);
     showToast('Error al guardar el lote', 'error');
+  }
+}
+
+/**
+ * Abre el modal de asignación visual de artículos para un lote dado.
+ */
+function openBatchAssignModal(batchId) {
+  const batch = AppState.batches.find(b => b.id === batchId);
+  if (!batch) {
+    showToast('Lote no encontrado.', 'error');
+    return;
+  }
+
+  AppState.assignBatchId = batchId;
+  AppState.assignSelectedArticleIds = new Set(
+    AppState.articles.filter(a => a.batchId === batchId).map(a => a.id)
+  );
+  AppState.assignSearchTerm = '';
+
+  const modal = document.getElementById('batchAssignModal');
+  const title = document.getElementById('batchAssignModalTitle');
+  const subtitle = document.getElementById('batchAssignModalSubtitle');
+  const searchInput = document.getElementById('batchAssignSearch');
+
+  if (title) title.textContent = `Asignar Artículos — ${batch.name}`;
+  if (subtitle) subtitle.textContent = `Haz clic en los productos para agregarlos o quitarlos de este paquete (${(batch.totalShippingCost || 0).toFixed(2)} € de envío)`;
+  if (searchInput) searchInput.value = '';
+
+  renderBatchAssignItems();
+  modal.style.display = 'flex';
+}
+
+/**
+ * Conmuta la selección de un artículo en el modal de asignación.
+ */
+function toggleAssignArticle(articleId) {
+  if (AppState.assignSelectedArticleIds.has(articleId)) {
+    AppState.assignSelectedArticleIds.delete(articleId);
+  } else {
+    AppState.assignSelectedArticleIds.add(articleId);
+  }
+  renderBatchAssignItems();
+}
+
+/**
+ * Renderiza la cuadrícula de artículos seleccionables en #batchAssignItemsList.
+ */
+function renderBatchAssignItems() {
+  const container = document.getElementById('batchAssignItemsList');
+  if (!container) return;
+
+  const batch = AppState.batches.find(b => b.id === AppState.assignBatchId);
+  const search = (AppState.assignSearchTerm || '').toLowerCase().trim();
+
+  const filtered = AppState.articles.filter(a => {
+    if (!search) return true;
+    const name = (a.name || '').toLowerCase();
+    const cat = (a.category || '').toLowerCase();
+    return name.includes(search) || cat.includes(search);
+  });
+
+  // Estadísticas globales de selección actual
+  const selectedArticles = AppState.articles.filter(a => AppState.assignSelectedArticleIds.has(a.id));
+  const selectedUnits = selectedArticles.reduce((s, a) => s + (a.quantity || 1), 0);
+  const selectedWeightG = selectedArticles.reduce((s, a) => s + ((a.weight || 0) * (a.quantity || 1)), 0);
+  const selectedWeightKg = selectedWeightG / 1000;
+
+  const countEl = document.getElementById('assignSelectedCount');
+  const unitsEl = document.getElementById('assignSelectedUnits');
+  const weightEl = document.getElementById('assignSelectedWeight');
+  const saveBtnCount = document.getElementById('btnSaveAssignCount');
+  const prorateEl = document.getElementById('assignBatchShippingProrate');
+
+  if (countEl) countEl.textContent = selectedArticles.length;
+  if (unitsEl) unitsEl.textContent = selectedUnits;
+  if (weightEl) weightEl.textContent = selectedWeightKg.toFixed(2);
+  if (saveBtnCount) saveBtnCount.textContent = selectedArticles.length;
+
+  if (prorateEl && batch) {
+    if (selectedUnits > 0) {
+      const unitProrate = (batch.totalShippingCost || 0) / selectedUnits;
+      prorateEl.textContent = `Prorrateo estimado: ~${unitProrate.toFixed(2)} €/ud de envío`;
+    } else {
+      prorateEl.textContent = 'Haz clic en los productos para asignarlos al lote';
+    }
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">
+        No se encontraron artículos que coincidan con la búsqueda.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(article => {
+    const isSelected = AppState.assignSelectedArticleIds.has(article.id);
+    const photoSrc = article.photo ? article.photo.data : '';
+    const imgHtml = photoSrc
+      ? `<img src="${photoSrc}" class="assign-item-thumb" alt="${escapeHtml(article.name)}">`
+      : `<div class="assign-item-thumb placeholder"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.8"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>`;
+
+    // Etiqueta de lote actual
+    let batchTagHtml = '';
+    if (article.batchId === AppState.assignBatchId) {
+      batchTagHtml = '<span class="assign-batch-tag in-this-batch">En este lote</span>';
+    } else if (article.batchId) {
+      const otherBatch = AppState.batches.find(b => b.id === article.batchId);
+      batchTagHtml = `<span class="assign-batch-tag in-other-batch">En: ${escapeHtml(otherBatch ? otherBatch.name : 'Otro lote')}</span>`;
+    } else {
+      batchTagHtml = '<span class="assign-batch-tag no-batch">Sin lote</span>';
+    }
+
+    const weightText = article.weight > 0
+      ? (article.weight >= 1000 ? `${(article.weight / 1000).toFixed(2)} kg` : `${article.weight} g`)
+      : 'Sin peso';
+
+    return `
+      <div class="assign-item-card ${isSelected ? 'selected' : ''}" onclick="toggleAssignArticle('${article.id}')">
+        <div class="assign-checkbox-wrap">
+          <input type="checkbox" class="assign-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleAssignArticle('${article.id}')">
+        </div>
+        ${imgHtml}
+        <div class="assign-item-info">
+          <div class="assign-item-title" title="${escapeHtml(article.name)}">${escapeHtml(article.name)}</div>
+          <div class="assign-item-meta">
+            <span class="pill-tag" style="font-size: 0.72rem; padding: 0.1rem 0.4rem;">${escapeHtml(article.category || 'General')}</span>
+            <span class="pill-tag" style="font-size: 0.72rem; padding: 0.1rem 0.4rem; font-weight: 700;">${article.quantity || 1} uds</span>
+            <span class="pill-tag" style="font-size: 0.72rem; padding: 0.1rem 0.4rem;">⚖️ ${weightText}</span>
+            ${batchTagHtml}
+          </div>
+          <div class="assign-item-footer">
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Coste base: <strong>${(article.costEUR || 0).toFixed(2)} €</strong></span>
+            <span style="font-size: 0.82rem; font-weight: 700; color: var(--brand);">Venta: ${(article.finalPrice || 0).toFixed(2)} €</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Guarda la asignación masiva de artículos al lote actual.
+ */
+async function saveBatchAssignHandler() {
+  const batchId = AppState.assignBatchId;
+  if (!batchId) return;
+
+  const batch = AppState.batches.find(b => b.id === batchId);
+  const affectedBatchIds = new Set([batchId]);
+
+  try {
+    for (const article of AppState.articles) {
+      const shouldBeInBatch = AppState.assignSelectedArticleIds.has(article.id);
+      const isCurrentlyInBatch = article.batchId === batchId;
+
+      if (shouldBeInBatch && !isCurrentlyInBatch) {
+        if (article.batchId) affectedBatchIds.add(article.batchId);
+        article.batchId = batchId;
+        article.updatedAt = Date.now();
+        await dbSaveArticle(article);
+      } else if (!shouldBeInBatch && isCurrentlyInBatch) {
+        article.batchId = null;
+        article.updatedAt = Date.now();
+        await dbSaveArticle(article);
+      }
+    }
+
+    // Recalcular todos los lotes afectados
+    for (const bId of affectedBatchIds) {
+      await recalculateBatchArticles(bId);
+    }
+
+    renderArticles();
+    renderBatchesList();
+    populateBatchSelects();
+    updateMainBatchesKPIs();
+    renderMainBatches();
+
+    document.getElementById('batchAssignModal').style.display = 'none';
+    showToast(`Asignación guardada: ${AppState.assignSelectedArticleIds.size} artículos en "${batch ? batch.name : 'lote'}"`, 'success');
+  } catch (err) {
+    console.error('Error al guardar asignación de lote:', err);
+    showToast('Error al guardar la asignación de artículos.', 'error');
   }
 }
 
@@ -1777,8 +2168,15 @@ async function deleteBatch(batchId) {
     }
 
     populateBatchSelects();
-    renderArticles();
-    renderBatchesList();
+    // Si estamos dentro del lote eliminado, volver a la pantalla principal
+    if (AppState.activeBatchId === batchId) {
+      navigateToBatches();
+    } else {
+      renderArticles();
+      renderBatchesList();
+      updateMainBatchesKPIs();
+      renderMainBatches();
+    }
     showToast(`Lote "${name}" eliminado`, 'info');
   } catch (error) {
     console.error('Error al eliminar lote:', error);
@@ -1789,6 +2187,258 @@ async function deleteBatch(batchId) {
 // Exportar funciones de lote al ámbito global para onclicks inline
 window.openBatchEditModal = openBatchEditModal;
 window.deleteBatch = deleteBatch;
+window.openBatchAssignModal = openBatchAssignModal;
+window.toggleAssignArticle = toggleAssignArticle;
+
+// ============================================================
+// 12c. NAVEGACIÓN ENTRE VISTAS (HOME LOTES ↔ DETALLE LOTE)
+// ============================================================
+
+/**
+ * Navega a la pantalla principal de lotes (Vista 1 — Home).
+ */
+function navigateToBatches() {
+  AppState.activeBatchId = null;
+
+  const homeView = document.getElementById('batchesHomeView');
+  const detailView = document.getElementById('batchDetailView');
+  if (homeView) homeView.style.display = '';
+  if (detailView) detailView.style.display = 'none';
+
+  updateMainBatchesKPIs();
+  renderMainBatches();
+}
+
+/**
+ * Navega al detalle de un lote concreto (Vista 2 — Dentro del Lote).
+ * @param {string} batchId - ID del lote, o 'NONE' para artículos sin lote.
+ */
+function navigateToBatchDetail(batchId) {
+  AppState.activeBatchId = batchId;
+  // Resetear filtros de artículos al entrar a un lote
+  AppState.searchTerm = '';
+  AppState.filterCategory = 'ALL';
+  AppState.filterStatus = 'ALL';
+  AppState.sortBy = 'date_desc';
+  const si = document.getElementById('searchInput');
+  if (si) si.value = '';
+  const fc = document.getElementById('filterCategory');
+  if (fc) fc.value = 'ALL';
+  const fs = document.getElementById('filterStatus');
+  if (fs) fs.value = 'ALL';
+  const sb = document.getElementById('sortBy');
+  if (sb) sb.value = 'date_desc';
+
+  const homeView = document.getElementById('batchesHomeView');
+  const detailView = document.getElementById('batchDetailView');
+  if (homeView) homeView.style.display = 'none';
+  if (detailView) detailView.style.display = '';
+
+  // Actualizar cabecera del detalle
+  const titleEl = document.getElementById('batchDetailTitle');
+  const metaEl = document.getElementById('batchDetailMeta');
+
+  if (batchId === 'NONE') {
+    if (titleEl) titleEl.textContent = 'Artículos sin Lote';
+    if (metaEl) metaEl.innerHTML = '<span class="batch-status-badge" style="background:rgba(100,116,139,0.1);color:var(--text-muted);border:1px solid var(--border-subtle);">Sin asignar</span>';
+    // Ocultar botones de lote específico
+    const btnAssign = document.getElementById('btnBatchDetailAssign');
+    const btnEdit = document.getElementById('btnBatchDetailEdit');
+    const btnEmptyAssign = document.getElementById('btnEmptyAssign');
+    if (btnAssign) btnAssign.style.display = 'none';
+    if (btnEdit) btnEdit.style.display = 'none';
+    if (btnEmptyAssign) btnEmptyAssign.style.display = 'none';
+  } else {
+    const batch = AppState.batches.find(b => b.id === batchId);
+    if (batch) {
+      if (titleEl) titleEl.textContent = batch.name;
+      const statusLabels = {
+        EN_PREPARACION: '<span class="batch-status-badge badge-prep">En preparación</span>',
+        EN_CAMINO: '<span class="batch-status-badge badge-transit">En camino ✈</span>',
+        RECIBIDO: '<span class="batch-status-badge badge-received">Recibido ✓</span>'
+      };
+      const trackingHtml = batch.tracking
+        ? `<span class="batch-tracking-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="10" x="2" y="3" rx="2"/><path d="M10 3v4"/><path d="M2 13h3"/><path d="M19 13h3"/><path d="M10 17v4"/></svg> ${escapeHtml(batch.tracking)}</span>`
+        : '';
+      const weightHtml = batch.totalWeight
+        ? `<span class="batch-tracking-pill">⚖️ ${batch.totalWeight.toFixed(2)} kg lote</span>`
+        : '';
+      if (metaEl) metaEl.innerHTML = `${statusLabels[batch.status] || ''} ${trackingHtml} ${weightHtml}`;
+    }
+    const btnAssign = document.getElementById('btnBatchDetailAssign');
+    const btnEdit = document.getElementById('btnBatchDetailEdit');
+    const btnEmptyAssign = document.getElementById('btnEmptyAssign');
+    if (btnAssign) btnAssign.style.display = '';
+    if (btnEdit) btnEdit.style.display = '';
+    if (btnEmptyAssign) btnEmptyAssign.style.display = '';
+  }
+
+  renderArticles();
+}
+
+/**
+ * Calcula los KPIs globales de la pantalla principal de lotes.
+ */
+function updateMainBatchesKPIs() {
+  const allArticles = AppState.articles;
+  const totalBatches = AppState.batches.length;
+  const totalArticles = allArticles.length;
+  const totalUnits = allArticles.reduce((s, a) => s + (a.quantity || 1), 0);
+  const totalCost = allArticles.reduce((s, a) => s + (a.totalCostEUR || 0) * (a.quantity || 1), 0);
+  const totalShipping = AppState.batches.reduce((s, b) => s + (b.totalShippingCost || 0), 0);
+  const totalRevenue = allArticles.reduce((s, a) => s + (a.finalPrice || 0) * (a.quantity || 1), 0);
+  const totalProfit = allArticles.reduce((s, a) => s + (a.netProfit || 0) * (a.quantity || 1), 0);
+  const totalWeight = AppState.batches.reduce((s, b) => s + (b.totalWeight || 0), 0);
+  const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+  const el = (id) => document.getElementById(id);
+
+  if (el('kpiMainTotalBatches')) el('kpiMainTotalBatches').textContent = totalBatches;
+  if (el('kpiMainTotalUnits')) el('kpiMainTotalUnits').textContent = `${totalArticles} artículos · ${totalUnits} uds`;
+  if (el('kpiMainTotalCost')) el('kpiMainTotalCost').textContent = formatCurrency(totalCost);
+  if (el('kpiMainTotalShipping')) el('kpiMainTotalShipping').textContent = `${formatCurrency(totalShipping)} en envíos`;
+  if (el('kpiMainTotalRevenue')) el('kpiMainTotalRevenue').textContent = formatCurrency(totalRevenue);
+  if (el('kpiMainTotalWeight')) el('kpiMainTotalWeight').textContent = `⚖️ ${totalWeight.toFixed(2)} kg calculados`;
+
+  const profitEl = el('kpiMainTotalProfit');
+  if (profitEl) {
+    profitEl.textContent = (totalProfit >= 0 ? '+' : '') + formatCurrency(totalProfit);
+    profitEl.className = totalProfit >= 0 ? 'kpi-value green-text' : 'kpi-value text-danger';
+  }
+  if (el('kpiMainAverageMargin')) el('kpiMainAverageMargin').textContent = `Margen medio: ${avgMargin.toFixed(1)}%`;
+}
+
+/**
+ * Renderiza la cuadrícula de lotes en la pantalla principal (Vista 1).
+ */
+function renderMainBatches() {
+  const grid = document.getElementById('batchesGridMain');
+  const emptyState = document.getElementById('batchesEmptyState');
+  if (!grid) return;
+
+  // Filtrar lotes según búsqueda y estado
+  let batches = [...AppState.batches];
+  if (AppState.batchSearchTerm.trim()) {
+    const term = AppState.batchSearchTerm.toLowerCase();
+    batches = batches.filter(b =>
+      b.name.toLowerCase().includes(term) ||
+      (b.tracking && b.tracking.toLowerCase().includes(term))
+    );
+  }
+  if (AppState.batchStatusFilter !== 'ALL') {
+    batches = batches.filter(b => b.status === AppState.batchStatusFilter);
+  }
+
+  const unassigned = AppState.articles.filter(a => !a.batchId);
+
+  if (batches.length === 0 && unassigned.length === 0) {
+    grid.innerHTML = '';
+    if (emptyState) emptyState.style.display = 'block';
+    return;
+  }
+  if (emptyState) emptyState.style.display = 'none';
+
+  const statusBadge = {
+    EN_PREPARACION: '<span class="batch-status-badge badge-prep">En preparación</span>',
+    EN_CAMINO: '<span class="batch-status-badge badge-transit">En camino ✈</span>',
+    RECIBIDO: '<span class="batch-status-badge badge-received">Recibido ✓</span>'
+  };
+
+  let html = batches.map(batch => {
+    const bArticles = AppState.articles.filter(a => a.batchId === batch.id);
+    const bUnits = bArticles.reduce((s, a) => s + (a.quantity || 1), 0);
+    const bCost = bArticles.reduce((s, a) => s + (a.totalCostEUR || 0) * (a.quantity || 1), 0);
+    const bRevenue = bArticles.reduce((s, a) => s + (a.finalPrice || 0) * (a.quantity || 1), 0);
+    const bProfit = bArticles.reduce((s, a) => s + (a.netProfit || 0) * (a.quantity || 1), 0);
+    const bWeightKg = bArticles.reduce((s, a) => s + ((a.weight || 0) * (a.quantity || 1)), 0) / 1000;
+    const margin = bRevenue > 0 ? (bProfit / bRevenue * 100) : 0;
+    const profitColor = bProfit >= 0 ? 'var(--emerald-text, #059669)' : 'var(--rose, #f43f5e)';
+    const profitSign = bProfit >= 0 ? '+' : '';
+
+    return `
+      <div class="batch-main-card" onclick="navigateToBatchDetail('${batch.id}')">
+        <div class="batch-card-top">
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.35rem;">
+            ${statusBadge[batch.status] || ''}
+          </div>
+          <h3 class="batch-main-title">${escapeHtml(batch.name)}</h3>
+          ${batch.tracking ? `<div class="batch-tracking-pill">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="10" x="2" y="3" rx="2"/><path d="M10 3v4"/><path d="M2 13h3"/><path d="M19 13h3"/><path d="M10 17v4"/></svg>
+            ${escapeHtml(batch.tracking)}
+          </div>` : ''}
+        </div>
+        <div class="batch-main-stats-grid">
+          <div class="batch-stat-box">
+            <span class="batch-stat-lbl">Artículos</span>
+            <span class="batch-stat-val">${bArticles.length} · ${bUnits} uds</span>
+          </div>
+          <div class="batch-stat-box">
+            <span class="batch-stat-lbl">⚖️ Peso</span>
+            <span class="batch-stat-val">${bWeightKg > 0 ? bWeightKg.toFixed(2) + ' kg' : (batch.totalWeight ? batch.totalWeight.toFixed(2) + ' kg' : '—')}</span>
+          </div>
+          <div class="batch-stat-box">
+            <span class="batch-stat-lbl">Inversión</span>
+            <span class="batch-stat-val" style="color:var(--amber-text,#b45309);">${formatCurrency(bCost)}</span>
+          </div>
+          <div class="batch-stat-box">
+            <span class="batch-stat-lbl">Beneficio est.</span>
+            <span class="batch-stat-val" style="color:${profitColor};font-weight:700;">${profitSign}${formatCurrency(bProfit)}</span>
+          </div>
+        </div>
+        <div class="batch-card-bottom">
+          <small class="text-muted">Envío: ${formatCurrency(batch.totalShippingCost || 0)} · Margen: ${margin.toFixed(1)}%</small>
+          <div class="batch-card-actions-quick" onclick="event.stopPropagation()">
+            <button class="btn btn-secondary btn-sm" onclick="openBatchAssignModal('${batch.id}')" title="Asignar artículos con el ratón">📦</button>
+            <button class="btn btn-secondary btn-sm" onclick="openBatchEditModal('${batch.id}')" title="Editar lote">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            </button>
+            <button class="btn btn-danger-outline btn-sm" onclick="deleteBatch('${batch.id}')" title="Eliminar lote">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
+          </div>
+          <button class="batch-card-enter-btn" onclick="navigateToBatchDetail('${batch.id}')">Ver artículos →</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Tarjeta de artículos sin lote
+  if (unassigned.length > 0) {
+    const uRevenue = unassigned.reduce((s, a) => s + (a.finalPrice || 0) * (a.quantity || 1), 0);
+    const uProfit = unassigned.reduce((s, a) => s + (a.netProfit || 0) * (a.quantity || 1), 0);
+    const uUnits = unassigned.reduce((s, a) => s + (a.quantity || 1), 0);
+    html += `
+      <div class="batch-main-card unassigned-card" onclick="navigateToBatchDetail('NONE')">
+        <div class="batch-card-top">
+          <div style="margin-bottom:0.35rem;">
+            <span class="batch-status-badge" style="background:rgba(100,116,139,0.1);color:var(--text-muted);border:1px solid var(--border-subtle);">Sin asignar</span>
+          </div>
+          <h3 class="batch-main-title" style="color:var(--text-secondary);">Artículos sin Lote</h3>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Artículos pendientes de asignar a un lote</div>
+        </div>
+        <div class="batch-main-stats-grid">
+          <div class="batch-stat-box">
+            <span class="batch-stat-lbl">Artículos</span>
+            <span class="batch-stat-val">${unassigned.length} · ${uUnits} uds</span>
+          </div>
+          <div class="batch-stat-box">
+            <span class="batch-stat-lbl">Venta pot.</span>
+            <span class="batch-stat-val">${formatCurrency(uRevenue)}</span>
+          </div>
+          <div class="batch-stat-box">
+            <span class="batch-stat-lbl">Beneficio est.</span>
+            <span class="batch-stat-val" style="color:${uProfit >= 0 ? 'var(--emerald-text,#059669)' : 'var(--rose,#f43f5e)'};">${uProfit >= 0 ? '+' : ''}${formatCurrency(uProfit)}</span>
+          </div>
+        </div>
+        <div class="batch-card-bottom">
+          <button class="batch-card-enter-btn">Ver artículos →</button>
+        </div>
+      </div>
+    `;
+  }
+
+  grid.innerHTML = html;
+}
 
 // ============================================================
 // 13. CONFIGURACIÓN DE EVENT LISTENERS
@@ -1852,8 +2502,8 @@ function setupEventListeners() {
   document.getElementById('btnNewArticle').addEventListener('click', () => openArticleModal());
   const btnMobileAdd = document.getElementById('btnMobileAdd');
   if (btnMobileAdd) btnMobileAdd.addEventListener('click', () => openArticleModal());
-  document.getElementById('btnEmptyAdd').addEventListener('click', () => openArticleModal());
-  document.getElementById('btnLoadDemo').addEventListener('click', () => loadDemoData());
+  document.getElementById('btnEmptyAdd')?.addEventListener('click', () => openArticleModal());
+  document.getElementById('btnLoadDemo')?.addEventListener('click', () => loadDemoData());
 
   // Modal Artículo
   document.getElementById('btnCloseArticleModal').addEventListener('click', closeArticleModal);
@@ -2084,49 +2734,160 @@ function setupEventListeners() {
 
   // ---- Lotes y Envíos Consolidados ----
   // Abrir modal de listado de lotes
-  document.getElementById('btnOpenBatchesModal').addEventListener('click', () => {
+  document.getElementById('btnOpenBatchesModal')?.addEventListener('click', () => {
     renderBatchesList();
     document.getElementById('batchesModal').style.display = 'flex';
   });
 
-  document.getElementById('btnCloseBatchesModal').addEventListener('click', () => {
+  document.getElementById('btnCloseBatchesModal')?.addEventListener('click', () => {
     document.getElementById('batchesModal').style.display = 'none';
   });
 
   // Botón Nuevo Lote dentro del modal de listado
-  document.getElementById('btnCreateNewBatch').addEventListener('click', () => {
+  document.getElementById('btnCreateNewBatch')?.addEventListener('click', () => {
     openBatchEditModal(null);
   });
 
   // Botón + Nuevo Lote rápido desde el formulario de artículo
-  document.getElementById('btnQuickCreateBatch').addEventListener('click', () => {
+  document.getElementById('btnQuickCreateBatch')?.addEventListener('click', () => {
     openBatchEditModal(null);
   });
 
   // Cerrar modal de edición de lote
-  document.getElementById('btnCloseBatchEditModal').addEventListener('click', () => {
+  document.getElementById('btnCloseBatchEditModal')?.addEventListener('click', () => {
     document.getElementById('batchEditModal').style.display = 'none';
     AppState.editingBatchId = null;
   });
 
-  document.getElementById('btnCancelBatchEdit').addEventListener('click', () => {
+  document.getElementById('btnCancelBatchEdit')?.addEventListener('click', () => {
     document.getElementById('batchEditModal').style.display = 'none';
     AppState.editingBatchId = null;
   });
 
   // Submit del formulario de lote
-  document.getElementById('batchForm').addEventListener('submit', saveBatchHandler);
+  document.getElementById('batchForm')?.addEventListener('submit', saveBatchHandler);
 
   // Cambio de lote en el modal de artículo → actualizar nota de envío prorrateado
-  document.getElementById('inputBatchId').addEventListener('change', (e) => {
+  document.getElementById('inputBatchId')?.addEventListener('change', (e) => {
     updateBatchShippingNote(e.target.value);
   });
 
   // Filtro por lote en la barra de filtros
-  document.getElementById('filterBatch').addEventListener('change', (e) => {
+  document.getElementById('filterBatch')?.addEventListener('change', (e) => {
     AppState.filterBatch = e.target.value;
     renderArticles();
   });
+
+  // Enlace Goofish: tester en vivo
+  const inputGoofishUrl = document.getElementById('inputGoofishUrl');
+  const linkTestGoofish = document.getElementById('linkTestGoofish');
+  if (inputGoofishUrl && linkTestGoofish) {
+    inputGoofishUrl.addEventListener('input', () => {
+      const val = inputGoofishUrl.value.trim();
+      if (val) {
+        linkTestGoofish.href = val;
+        linkTestGoofish.style.display = 'inline';
+      } else {
+        linkTestGoofish.style.display = 'none';
+      }
+    });
+  }
+
+  // ---- Modal de Asignación Visual de Artículos a Lote ----
+  document.getElementById('btnCloseBatchAssignModal')?.addEventListener('click', () => {
+    document.getElementById('batchAssignModal').style.display = 'none';
+  });
+  document.getElementById('btnCancelBatchAssign')?.addEventListener('click', () => {
+    document.getElementById('batchAssignModal').style.display = 'none';
+  });
+  document.getElementById('btnSaveBatchAssign')?.addEventListener('click', saveBatchAssignHandler);
+
+  const batchAssignSearch = document.getElementById('batchAssignSearch');
+  if (batchAssignSearch) {
+    batchAssignSearch.addEventListener('input', (e) => {
+      AppState.assignSearchTerm = e.target.value;
+      renderBatchAssignItems();
+    });
+  }
+
+  document.getElementById('btnAssignSelectUnassigned')?.addEventListener('click', () => {
+    AppState.articles.forEach(a => {
+      if (!a.batchId) AppState.assignSelectedArticleIds.add(a.id);
+    });
+    renderBatchAssignItems();
+  });
+
+  document.getElementById('btnAssignSelectAll')?.addEventListener('click', () => {
+    AppState.articles.forEach(a => AppState.assignSelectedArticleIds.add(a.id));
+    renderBatchAssignItems();
+  });
+
+  document.getElementById('btnAssignDeselectAll')?.addEventListener('click', () => {
+    AppState.assignSelectedArticleIds.clear();
+    renderBatchAssignItems();
+  });
+
+  document.getElementById('btnOpenAssignFromBatchEdit')?.addEventListener('click', () => {
+    if (AppState.editingBatchId) {
+      openBatchAssignModal(AppState.editingBatchId);
+    } else {
+      showToast('Guarda el lote primero para poder asignarle artículos.', 'warning');
+    }
+  });
+
+  // ---- Navegación de Vistas: Home Lotes ↔ Detalle Lote ----
+  document.getElementById('btnBackToBatches')?.addEventListener('click', () => navigateToBatches());
+  document.getElementById('btnNavBatchesHome')?.addEventListener('click', () => navigateToBatches());
+
+  document.getElementById('btnNavNewBatch')?.addEventListener('click', () => openBatchEditModal(null));
+  document.getElementById('btnMainCreateBatch')?.addEventListener('click', () => openBatchEditModal(null));
+  document.getElementById('btnEmptyCreateBatch')?.addEventListener('click', () => openBatchEditModal(null));
+
+  document.getElementById('btnLoadDemoMain')?.addEventListener('click', async () => {
+    await dbClearAllArticles();
+    AppState.articles = [];
+    AppState.batches = [];
+    await loadDemoData();
+  });
+
+  document.getElementById('btnBatchDetailAssign')?.addEventListener('click', () => {
+    if (AppState.activeBatchId && AppState.activeBatchId !== 'NONE') {
+      openBatchAssignModal(AppState.activeBatchId);
+    }
+  });
+
+  document.getElementById('btnBatchDetailEdit')?.addEventListener('click', () => {
+    if (AppState.activeBatchId && AppState.activeBatchId !== 'NONE') {
+      openBatchEditModal(AppState.activeBatchId);
+    }
+  });
+
+  document.getElementById('btnBatchDetailAddArticle')?.addEventListener('click', () => openArticleModal());
+
+  document.getElementById('btnEmptyAssign')?.addEventListener('click', () => {
+    if (AppState.activeBatchId && AppState.activeBatchId !== 'NONE') {
+      openBatchAssignModal(AppState.activeBatchId);
+    } else {
+      navigateToBatches();
+    }
+  });
+
+  // Búsqueda y filtro de lotes en la pantalla Home
+  const batchSearchInput = document.getElementById('batchSearchInput');
+  if (batchSearchInput) {
+    batchSearchInput.addEventListener('input', (e) => {
+      AppState.batchSearchTerm = e.target.value;
+      renderMainBatches();
+    });
+  }
+
+  const batchStatusFilter = document.getElementById('batchStatusFilter');
+  if (batchStatusFilter) {
+    batchStatusFilter.addEventListener('change', (e) => {
+      AppState.batchStatusFilter = e.target.value;
+      renderMainBatches();
+    });
+  }
 }
 
 // ============================================================
@@ -2184,3 +2945,5 @@ window.openLightbox = function(src, caption) {
 window.editArticle = editArticle;
 window.duplicateArticle = duplicateArticle;
 window.confirmDeleteArticle = confirmDeleteArticle;
+window.navigateToBatches = navigateToBatches;
+window.navigateToBatchDetail = navigateToBatchDetail;
